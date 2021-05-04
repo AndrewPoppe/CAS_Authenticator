@@ -1,5 +1,5 @@
 {
-    "name": "CAS Login",
+    "name": "CAS Survey Login",
     "namespace": "YaleREDCap\\CASLogin",
     "description": "This External Module enables the integration of CAS authentication in any survey.",
     "authors": [

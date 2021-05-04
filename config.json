@@ -1,7 +1,7 @@
 {
     "name": "CAS Login",
     "namespace": "YaleREDCap\\CASLogin",
-    "description": "TEST",
+    "description": "This External Module enables the integration of CAS authentication in any survey.",
     "authors": [
         {
             "name": "Andrew Poppe",
@@ -62,16 +62,6 @@
          }
     ],
     "framework-version": 5,
-    "links": {
-        "project": [
-            {
-                "name":"CAS LOGIN",
-                "icon": "fas fa-download",
-                "url":"example_simple.php",
-                "show-header-and-footer": false
-            }
-        ]
-    },
     "compatibility": {
         "redcap-version-min": "9.10.0",
         "redcap-version-max": ""

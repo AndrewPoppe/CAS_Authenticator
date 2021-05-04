@@ -1,0 +1,79 @@
+{
+    "name": "CAS Login",
+    "namespace": "YaleREDCap\\CASLogin",
+    "description": "TEST",
+    "authors": [
+        {
+            "name": "Andrew Poppe",
+            "email": "andrew.poppe@yale.edu",
+            "institution": "Yale Center for Clinical Investigation"
+        }
+    ],
+    "permissions": [
+        "redcap_survey_page_top"
+    ],
+    "system-settings": [
+        {
+            "key": "cas-host",
+            "name": "<strong>Full Hostname of your CAS Server</strong>:<br>e.g., secure.its.yale.edu",
+            "required": true,
+            "type": "text"
+         },
+         {
+            "key": "cas-context",
+            "name": "<strong>Context of the CAS Server</strong>:<br>e.g., /cas",
+            "required": true,
+            "type": "text"
+         },
+         {
+            "key": "cas-port",
+            "name": "<strong>Port of your CAS server</strong>:<br>Normally for a https server it's 443",
+            "required": true,
+            "type": "text"
+         },
+         {
+            "key": "cas-server-ca-cert-pem",
+            "name": "<strong>CA cert pem file</strong>:<br>e.g., secure-its-yale-edu.pem",
+            "required": true,
+            "type": "file"
+         }
+    ],
+    "project-settings": [
+        {
+            "key": "survey-subsettings",
+            "name": "<strong>Select surveys to add CAS to</strong>",
+            "required": true,
+            "type": "sub_settings",
+            "repeatable":true,
+            "sub_settings":[
+                {
+                    "key": "survey",
+                    "name": "<strong>Survey</strong>",
+                    "required": true,
+                    "type": "form-list"
+                },
+                {
+                    "key": "id-field",
+                    "name": "<strong>ID Field</strong>:<br>If you want to store the id of the person who logged in with CAS, select the field to store it here (it should be a text or notes field)",
+                    "required": false,
+                    "type": "field-list"
+                }   
+            ]
+         }
+    ],
+    "framework-version": 5,
+    "links": {
+        "project": [
+            {
+                "name":"CAS LOGIN",
+                "icon": "fas fa-download",
+                "url":"example_simple.php",
+                "show-header-and-footer": false
+            }
+        ]
+    },
+    "compatibility": {
+        "redcap-version-min": "9.10.0",
+        "redcap-version-max": ""
+    }
+}

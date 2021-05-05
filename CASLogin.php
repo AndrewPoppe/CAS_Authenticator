@@ -94,9 +94,11 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                     [$project_id, $form]);
                 if ($surveyResult->num_rows < 1) {
                     return "The selected form ($form) is not enabled as a survey.";
-                };
+                }
 
-                if (!$id_field) continue;
+                if (!$id_field) {
+                    continue;
+                }
 
                 // id_field must be a text input on that survey
                 $fieldResult = $this->query('SELECT element_type FROM redcap_metadata

@@ -54,7 +54,7 @@
                 },
                 {
                     "key": "id-field",
-                    "name": "<strong>ID Field</strong>:<br>If you want to store the id of the person who logged in with CAS, select the field to store it here (it should be a text or notes field)",
+                    "name": "<strong>ID Field</strong>:<br>If you want to store the id of the person who logged in with CAS, select the field to store it here (it should be a text input field on the same survey)",
                     "required": false,
                     "type": "field-list"
                 }   

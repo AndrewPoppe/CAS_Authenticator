@@ -78,4 +78,42 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         $filename = $result->fetch_assoc()["stored_name"];
         return EDOC_PATH . $filename;
     }
+
+    function validateSettings($settings) {
+
+        // project-level settings
+        if (count($settings["survey"]) > 0) {
+            foreach ($settings["survey"] as $i=>$form) {
+                $id_field = $settings["id-field"][$i];
+                $project_id = $this->getProjectId();
+
+                // form must be a survey
+                $surveyResult = $this->query('SELECT survey_id FROM redcap_surveys
+                    WHERE project_id = ?
+                    AND form_name = ?', 
+                    [$project_id, $form]);
+                if ($surveyResult->num_rows < 1) {
+                    return "The selected form ($form) is not enabled as a survey.";
+                };
+
+                if (!$id_field) continue;
+
+                // id_field must be a text input on that survey
+                $fieldResult = $this->query('SELECT element_type FROM redcap_metadata
+                    WHERE project_id = ?
+                    AND form_name = ?
+                    AND field_name = ?', 
+                    [$project_id, $form, $id_field]);
+                if ($fieldResult->num_rows < 1) {
+                    return "The selected id field ($id_field) is not on the selected survey ($form).";
+                }
+                $row = $fieldResult->fetch_assoc();
+                if ($row["element_type"] !== "text") {
+                    return "The selected id field ($id_field) is not a text input field.";
+                }
+
+            }
+        }
+
+    }
 }

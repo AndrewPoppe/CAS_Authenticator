@@ -26,12 +26,14 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                 ?>
                 <script type='text/javascript' defer>
                     setTimeout(function() {
-                        console.log("<?=$field?>");
-                        field = $(`input[name="<?=$field?>"]`);
-                        if (field.length) {
-                            field.val("<?=$id?>");
-                            field.closest('tr').addClass('@READONLY');
-                        }
+                        $( document ).ready(function() {
+                            field = $(`input[name="<?=$field?>"]`);
+                            id = "<?=$id?>";
+                            if (field.length) {
+                                field.val(id);
+                                field.closest('tr').addClass('@READONLY');
+                            }
+                        });
                     }, 0);
                 </script>
                 <?php    

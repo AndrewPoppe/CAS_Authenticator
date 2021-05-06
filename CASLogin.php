@@ -43,7 +43,14 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         
     }
 
+    /**
+     * Initiate CAS authentication
+     * 
+     * 
+     * @return [type]
+     */
     function authenticate() {
+
         require_once __DIR__ . '/vendor/jasig/phpcas/CAS.php';
         
         $cas_host = $this->getSystemSetting("cas-host");
@@ -51,6 +58,12 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         $cas_port = (int) $this->getSystemSetting("cas-port");
         $cas_server_ca_cert_id = $this->getSystemSetting("cas-server-ca-cert-pem");
         $cas_server_ca_cert_path = $this->getFile($cas_server_ca_cert_id);
+        $server_force_https = $this->getSystemSetting("server-force-https");
+
+        // Enable https fix
+        if ($server_force_https == 1) {
+            $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+        }
         
         // Initialize phpCAS
         \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context);
@@ -61,7 +74,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
 
         // force CAS authentication
         \phpCAS::forceAuthentication();
-
+        
         return \phpCAS::getUser();
     }
 
@@ -81,7 +94,17 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         return EDOC_PATH . $filename;
     }
 
-    function validateSettings($settings) {
+    /**
+     * Make sure settings meet certain conditions.
+     * 
+     * This is called when a user clicks "Save" in either system or project
+     * configuration.
+     * 
+     * @param array $settings Array of settings user is trying to set
+     * 
+     * @return string|null if not null, the error message to show to user
+     */
+    function validateSettings(array $settings) {
 
         // project-level settings
         if (count($settings["survey"]) > 0) {

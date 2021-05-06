@@ -36,6 +36,12 @@
             "name": "<strong>CA cert pem file</strong>:<br>e.g., secure-its-yale-edu.pem",
             "required": true,
             "type": "file"
+         },
+         {
+             "key": "server-force-https",
+             "name": "<strong>HTTPS Override</strong>:<br>Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol",
+             "required": false,
+             "type": "checkbox"
          }
     ],
     "project-settings": [

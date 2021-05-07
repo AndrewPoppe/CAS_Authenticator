@@ -71,7 +71,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
     function authenticate() {
 
         require_once __DIR__ . '/vendor/jasig/phpcas/CAS.php';
-        
+
         $cas_host = $this->getSystemSetting("cas-host");
         $cas_context = $this->getSystemSetting("cas-context");
         $cas_port = (int) $this->getSystemSetting("cas-port");
@@ -82,6 +82,9 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         // Enable https fix
         if ($server_force_https == 1) {
             $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+            $_SERVER['HTTP_X_FORWARDED_PORT'] = 443;
+            $_SERVER['HTTPS'] = 'on';
+            $_SERVER['SERVER_PORT'] = 443;
         }
         
         // Initialize phpCAS

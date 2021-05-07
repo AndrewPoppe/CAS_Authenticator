@@ -10,16 +10,35 @@ namespace YaleREDCap\CASLogin;
 class CASLogin extends \ExternalModules\AbstractExternalModule {
 
 
+    /**
+     * REDCap hook
+     * 
+     * @param mixed $project_id
+     * @param mixed $record
+     * @param mixed $instrument
+     * @param mixed $event_id
+     * @param mixed $group_id
+     * @param mixed $survey_hash
+     * @param mixed $response_id
+     * @param mixed $repeat_instance
+     * 
+     * @return void
+     */
     function redcap_survey_page_top($project_id, $record, $instrument, 
-    $event_id, $group_id, $survey_hash, $response_id, $repeat_instance)
+        $event_id, $group_id, $survey_hash, $response_id, $repeat_instance)
     {
-        
+
         $projectSettings = $this->getProjectSettings();
         
         $index = array_search($instrument, $projectSettings["survey"], true);
         
         if ($index !== FALSE) {
             $id = $this->authenticate();
+
+            if ($id === FALSE) {
+                exit ("CAS authentication failed");
+            }
+
             $field = $projectSettings["id-field"][$index];
             
             if ($field !== NULL) {
@@ -47,7 +66,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
      * Initiate CAS authentication
      * 
      * 
-     * @return [type]
+     * @return string|boolean username of authenticated user (false if not authenticated)
      */
     function authenticate() {
 
@@ -74,8 +93,11 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
 
         // force CAS authentication
         \phpCAS::forceAuthentication();
-        
-        return \phpCAS::getUser();
+
+        // get authenticated username
+        $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
+
+        return $user;
     }
 
     /**

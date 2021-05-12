@@ -33,10 +33,15 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         $index = array_search($instrument, $projectSettings["survey"], true);
         
         if ($index !== FALSE) {
-            $id = $this->authenticate();
+            try {
+                $id = $this->authenticate();
+            }
+            catch (exception $e) {
+                var_dump($e);
+            }
 
             if ($id === FALSE) {
-                exit ("CAS authentication failed");
+                var_dump ("CAS authentication failed");
             }
 
             $field = $projectSettings["id-field"][$index];

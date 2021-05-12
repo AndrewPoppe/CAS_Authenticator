@@ -33,7 +33,7 @@
          },
          {
             "key": "cas-server-ca-cert-pem",
-            "name": "<strong>CA cert pem file</strong>:<br>e.g., secure-its-yale-edu.pem",
+            "name": "<strong>CA cert pem file</strong>:<br>e.g., cacert.pem",
             "required": true,
             "type": "file"
          },

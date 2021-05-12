@@ -13,7 +13,7 @@ Install by downloading the latest release zip and unzipping in the modules direc
 - **CAS Host**: Full Hostname of your CAS Server (e.g., `secure.its.yale.edu`)
 - **CAS Context**: Context of the CAS Server (e.g., `/cas`)
 - **CAS Port**: Port of your CAS server (e.g., `443`)
-- **CAS Server CA Cert File**: The PEM file containing your CAS server's cert (e.g., `secure-its-yale-edu.pem`)
+- **CAS Server CA Cert File**: The PEM file containing your CAS server's cert (e.g., [cacert.pem](https://curl.se/docs/caextract.html))
 
 #### Project configuration:
 

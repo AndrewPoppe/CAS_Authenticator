@@ -36,12 +36,12 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
             try {
                 $id = $this->authenticate();
             }
-            catch (exception $e) {
-                var_dump($e);
+            catch (\Exception $e) {
+                $this->exitAfterHook();
             }
 
             if ($id === FALSE) {
-                var_dump ("CAS authentication failed");
+                $this->exitAfterHook();
             }
 
             $field = $projectSettings["id-field"][$index];
@@ -100,13 +100,19 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
 
         // force CAS authentication
-        \phpCAS::forceAuthentication();
-
-        // get authenticated username
-        $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
+        try {
+            \phpCAS::forceAuthentication();
+            // get authenticated username
+            $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
+        } 
+        catch (\Exception $e) {
+            $this->log($e->getMessage());
+            $this->exitAfterHook();
+        }
 
         return $user;
     }
+
 
     /**
      * Get url to file with provided edoc ID.

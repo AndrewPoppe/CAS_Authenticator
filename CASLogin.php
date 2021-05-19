@@ -36,33 +36,40 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
             try {
                 $id = $this->authenticate();
             }
+            catch (\CAS_GracefullTerminationException $e) {
+                if ($e->getCode() !== 0) {
+                    $this->log($e->getMessage());
+                }
+            }
             catch (\Exception $e) {
+                $this->log($e->getMessage());
                 $this->exitAfterHook();
             }
+            finally {
+                if ($id === FALSE) {
+                    $this->exitAfterHook();
+                    return;
+                }
 
-            if ($id === FALSE) {
-                $this->exitAfterHook();
-            }
-
-            $field = $projectSettings["id-field"][$index];
-            
-            if ($field !== NULL) {
-                ?>
-                <script type='text/javascript' defer>
-                    setTimeout(function() {
-                        $( document ).ready(function() {
-                            field = $(`input[name="<?=$field?>"]`);
-                            id = "<?=$id?>";
-                            if (field.length) {
-                                field.val(id);
-                                field.closest('tr').addClass('@READONLY');
-                            }
-                        });
-                    }, 0);
-                </script>
-                <?php    
-            }
-            
+                $field = $projectSettings["id-field"][$index];
+                
+                if ($field !== NULL) {
+                    ?>
+                    <script type='text/javascript' defer>
+                        setTimeout(function() {
+                            $( document ).ready(function() {
+                                field = $(`input[name="<?=$field?>"]`);
+                                id = "<?=$id?>";
+                                if (field.length) {
+                                    field.val(id);
+                                    field.closest('tr').addClass('@READONLY');
+                                }
+                            });
+                        }, 0);
+                    </script>
+                    <?php    
+                }
+            }            
         }
         
     }
@@ -99,17 +106,14 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         // on the CAS server
         \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
 
-        // force CAS authentication
-        try {
-            \phpCAS::forceAuthentication();
-            // get authenticated username
-            $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
-        } 
-        catch (\Exception $e) {
-            $this->log($e->getMessage());
-            $this->exitAfterHook();
-        }
+        // Don't exit, let me handle instead
+        \CAS_GracefullTerminationException::throwInsteadOfExiting();
 
+        // force CAS authentication
+        $result = \phpCAS::forceAuthentication();
+        // get authenticated username
+        $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
+        
         return $user;
     }
 

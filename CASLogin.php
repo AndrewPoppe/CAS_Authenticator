@@ -110,11 +110,10 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
         \CAS_GracefullTerminationException::throwInsteadOfExiting();
 
         // force CAS authentication
-        $result = \phpCAS::forceAuthentication();
-        // get authenticated username
-        $user = \phpCAS::isAuthenticated() ? \phpCAS::getUser() : FALSE; 
+        \phpCAS::forceAuthentication();
         
-        return $user;
+        // Return authenticated username
+        return \phpCAS::getUser();
     }
 
 

@@ -51,6 +51,14 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                     return;
                 }
 
+                // Successful authentication
+                $this->log('CAS Auth Succeeded', [
+                    "CASLogin_NetId"=>$id,
+                    "instrument"=>$instrument,
+                    "event_id"=>$event_id,
+                    "response_id"=>$response_id
+                ]);
+
                 $field = $projectSettings["id-field"][$index];
                 
                 if ($field !== NULL) {

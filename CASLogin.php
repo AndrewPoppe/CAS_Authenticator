@@ -30,9 +30,16 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
 
         $projectSettings = $this->getProjectSettings();
         
-        $index = array_search($instrument, $projectSettings["survey"], true);
+        foreach ($projectSettings["survey"] as $index => $surveyName) {
         
-        if ($index !== FALSE) {
+            if ($projectSettings["event"][$index] !== null && $projectSettings["event"][$index] !== $event_id) {
+                continue;
+            }
+
+            if ($projectSettings["survey"][$index] !== $instrument) {
+                continue;
+            }
+        
             try {
                 $id = $this->authenticate();
             }

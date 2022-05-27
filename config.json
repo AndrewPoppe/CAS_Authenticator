@@ -18,31 +18,31 @@
             "name": "<strong>Full Hostname of your CAS Server</strong>:<br>e.g., secure.its.yale.edu",
             "required": true,
             "type": "text"
-         },
-         {
+        },
+        {
             "key": "cas-context",
             "name": "<strong>Context of the CAS Server</strong>:<br>e.g., /cas",
             "required": true,
             "type": "text"
-         },
-         {
+        },
+        {
             "key": "cas-port",
             "name": "<strong>Port of your CAS server</strong>:<br>Normally for a https server it's 443",
             "required": true,
             "type": "text"
-         },
-         {
+        },
+        {
             "key": "cas-server-ca-cert-pem",
             "name": "<strong>CA cert pem file</strong>:<br>e.g., cacert.pem",
             "required": true,
             "type": "file"
-         },
-         {
-             "key": "server-force-https",
-             "name": "<strong>HTTPS Override</strong>:<br>Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol",
-             "required": false,
-             "type": "checkbox"
-         }
+        },
+        {
+            "key": "server-force-https",
+            "name": "<strong>HTTPS Override</strong>:<br>Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol",
+            "required": false,
+            "type": "checkbox"
+        }
     ],
     "project-settings": [
         {
@@ -50,8 +50,14 @@
             "name": "<strong>Select surveys to add CAS to</strong>",
             "required": true,
             "type": "sub_settings",
-            "repeatable":true,
-            "sub_settings":[
+            "repeatable": true,
+            "sub_settings": [
+                {
+                    "key": "event",
+                    "name": "<strong>Event</strong>:<br>Leave blank if not applicable or if CAS should apply to the chosen survey across all events",
+                    "required": false,
+                    "type": "event-list"
+                },
                 {
                     "key": "survey",
                     "name": "<strong>Survey</strong>",
@@ -63,13 +69,13 @@
                     "name": "<strong>ID Field</strong>:<br>If you want to store the id of the person who logged in with CAS, select the field to store it here (it should be a text input field on the same survey)",
                     "required": false,
                     "type": "field-list"
-                }   
+                }
             ]
-         }
+        }
     ],
-    "framework-version": 5,
+    "framework-version": 8,
     "compatibility": {
-        "redcap-version-min": "9.10.0",
+        "redcap-version-min": "12.0.0",
         "redcap-version-max": ""
     }
 }

@@ -7,7 +7,8 @@ namespace YaleREDCap\CASLogin;
  * 
  * @author Andrew Poppe
  */
-class CASLogin extends \ExternalModules\AbstractExternalModule {
+class CASLogin extends \ExternalModules\AbstractExternalModule
+{
 
 
     /**
@@ -24,14 +25,21 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
      * 
      * @return void
      */
-    function redcap_survey_page_top($project_id, $record, $instrument, 
-        $event_id, $group_id, $survey_hash, $response_id, $repeat_instance)
-    {
+    function redcap_survey_page_top(
+        $project_id,
+        $record,
+        $instrument,
+        $event_id,
+        $group_id,
+        $survey_hash,
+        $response_id,
+        $repeat_instance
+    ) {
 
         $projectSettings = $this->getProjectSettings();
-        
+
         foreach ($projectSettings["survey"] as $index => $surveyName) {
-        
+
             if ($projectSettings["event"][$index] !== null && $projectSettings["event"][$index] !== $event_id) {
                 continue;
             }
@@ -39,20 +47,17 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
             if ($projectSettings["survey"][$index] !== $instrument) {
                 continue;
             }
-        
+
             try {
                 $id = $this->authenticate();
-            }
-            catch (\CAS_GracefullTerminationException $e) {
+            } catch (\CAS_GracefullTerminationException $e) {
                 if ($e->getCode() !== 0) {
-                    $this->log($e->getMessage());
+                    $this->log('error getting code', ['error' => $e->getMessage()]);
                 }
-            }
-            catch (\Exception $e) {
-                $this->log($e->getMessage());
+            } catch (\Exception $e) {
+                $this->log('error', ['error' => $e->getMessage()]);
                 $this->exitAfterHook();
-            }
-            finally {
+            } finally {
                 if ($id === FALSE) {
                     $this->exitAfterHook();
                     return;
@@ -60,21 +65,21 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
 
                 // Successful authentication
                 $this->log('CAS Auth Succeeded', [
-                    "CASLogin_NetId"=>$id,
-                    "instrument"=>$instrument,
-                    "event_id"=>$event_id,
-                    "response_id"=>$response_id
+                    "CASLogin_NetId" => $id,
+                    "instrument" => $instrument,
+                    "event_id" => $event_id,
+                    "response_id" => $response_id
                 ]);
 
                 $field = $projectSettings["id-field"][$index];
-                
+
                 if ($field !== NULL) {
-                    ?>
+?>
                     <script type='text/javascript' defer>
                         setTimeout(function() {
-                            $( document ).ready(function() {
-                                field = $(`input[name="<?=$field?>"]`);
-                                id = "<?=$id?>";
+                            $(document).ready(function() {
+                                field = $(`input[name="<?= $field ?>"]`);
+                                id = "<?= $id ?>";
                                 if (field.length) {
                                     field.val(id);
                                     field.closest('tr').addClass('@READONLY');
@@ -82,11 +87,10 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                             });
                         }, 0);
                     </script>
-                    <?php    
+<?php
                 }
-            }            
+            }
         }
-        
     }
 
     /**
@@ -95,7 +99,8 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
      * 
      * @return string|boolean username of authenticated user (false if not authenticated)
      */
-    function authenticate() {
+    function authenticate()
+    {
 
         require_once __DIR__ . '/vendor/jasig/phpcas/CAS.php';
 
@@ -113,7 +118,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
             $_SERVER['HTTPS'] = 'on';
             $_SERVER['SERVER_PORT'] = 443;
         }
-        
+
         // Initialize phpCAS
         \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context);
 
@@ -126,7 +131,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
 
         // force CAS authentication
         \phpCAS::forceAuthentication();
-        
+
         // Return authenticated username
         return \phpCAS::getUser();
     }
@@ -139,7 +144,8 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
      * 
      * @return string path to file in edoc folder
      */
-    private function getFile(string $edocId) {
+    private function getFile(string $edocId)
+    {
         if ($edocId === NULL) {
             return "";
         }
@@ -158,19 +164,22 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
      * 
      * @return string|null if not null, the error message to show to user
      */
-    function validateSettings(array $settings) {
+    function validateSettings(array $settings)
+    {
 
         // project-level settings
         if (count($settings["survey"]) > 0) {
-            foreach ($settings["survey"] as $i=>$form) {
+            foreach ($settings["survey"] as $i => $form) {
                 $id_field = $settings["id-field"][$i];
                 $project_id = $this->getProjectId();
 
                 // form must be a survey
-                $surveyResult = $this->query('SELECT survey_id FROM redcap_surveys
+                $surveyResult = $this->query(
+                    'SELECT survey_id FROM redcap_surveys
                     WHERE project_id = ?
-                    AND form_name = ?', 
-                    [$project_id, $form]);
+                    AND form_name = ?',
+                    [$project_id, $form]
+                );
                 if ($surveyResult->num_rows < 1) {
                     return "The selected form ($form) is not enabled as a survey.";
                 }
@@ -180,11 +189,13 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                 }
 
                 // id_field must be a text input on that survey
-                $fieldResult = $this->query('SELECT element_type FROM redcap_metadata
+                $fieldResult = $this->query(
+                    'SELECT element_type FROM redcap_metadata
                     WHERE project_id = ?
                     AND form_name = ?
-                    AND field_name = ?', 
-                    [$project_id, $form, $id_field]);
+                    AND field_name = ?',
+                    [$project_id, $form, $id_field]
+                );
                 if ($fieldResult->num_rows < 1) {
                     return "The selected id field ($id_field) is not on the selected survey ($form).";
                 }
@@ -192,9 +203,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule {
                 if ($row["element_type"] !== "text") {
                     return "The selected id field ($id_field) is not a text input field.";
                 }
-
             }
         }
-
     }
 }

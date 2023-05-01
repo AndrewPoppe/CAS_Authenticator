@@ -110,6 +110,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
         $cas_server_ca_cert_id = $this->getSystemSetting("cas-server-ca-cert-pem");
         $cas_server_ca_cert_path = $this->getFile($cas_server_ca_cert_id);
         $server_force_https = $this->getSystemSetting("server-force-https");
+        $service_base_url = APP_PATH_WEBROOT_FULL;
 
         // Enable https fix
         if ($server_force_https == 1) {
@@ -120,7 +121,7 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
         }
 
         // Initialize phpCAS
-        \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context);
+        \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context, $service_base_url);
 
         // Set the CA certificate that is the issuer of the cert
         // on the CAS server

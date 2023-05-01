@@ -9,9 +9,6 @@
             "institution": "Yale Center for Clinical Investigation"
         }
     ],
-    "permissions": [
-        "redcap_survey_page_top"
-    ],
     "system-settings": [
         {
             "key": "cas-host",
@@ -73,9 +70,9 @@
             ]
         }
     ],
-    "framework-version": 8,
+    "framework-version": 12,
     "compatibility": {
-        "redcap-version-min": "12.0.0",
+        "redcap-version-min": "13.1.27",
         "redcap-version-max": "",
         "php-version-min": "7.4.00",
         "php-version-max": "7.99.99"

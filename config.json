@@ -31,7 +31,7 @@
         {
             "key": "cas-server-ca-cert-pem",
             "name": "<strong>CA cert pem file</strong>:<br>e.g., cacert.pem",
-            "required": true,
+            "required": false,
             "type": "file"
         },
         {

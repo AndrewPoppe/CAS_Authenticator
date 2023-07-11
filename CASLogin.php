@@ -38,27 +38,27 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
 
         $projectSettings = $this->getProjectSettings();
 
-        foreach ($projectSettings["survey"] as $index => $surveyName) {
+        foreach ( $projectSettings["survey"] as $index => $surveyName ) {
 
-            if ($projectSettings["event"][$index] !== null && $projectSettings["event"][$index] !== $event_id) {
+            if ( $projectSettings["event"][$index] !== null && $projectSettings["event"][$index] !== $event_id ) {
                 continue;
             }
 
-            if ($projectSettings["survey"][$index] !== $instrument) {
+            if ( $projectSettings["survey"][$index] !== $instrument ) {
                 continue;
             }
 
             try {
                 $id = $this->authenticate();
-            } catch (\CAS_GracefullTerminationException $e) {
-                if ($e->getCode() !== 0) {
-                    $this->log('error getting code', ['error' => $e->getMessage()]);
+            } catch ( \CAS_GracefullTerminationException $e ) {
+                if ( $e->getCode() !== 0 ) {
+                    $this->log('error getting code', [ 'error' => $e->getMessage() ]);
                 }
-            } catch (\Exception $e) {
-                $this->log('error', ['error' => $e->getMessage()]);
+            } catch ( \Exception $e ) {
+                $this->log('error', [ 'error' => $e->getMessage() ]);
                 $this->exitAfterHook();
             } finally {
-                if ($id === FALSE) {
+                if ( $id === FALSE ) {
                     $this->exitAfterHook();
                     return;
                 }
@@ -66,27 +66,27 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
                 // Successful authentication
                 $this->log('CAS Auth Succeeded', [
                     "CASLogin_NetId" => $id,
-                    "instrument" => $instrument,
-                    "event_id" => $event_id,
-                    "response_id" => $response_id
+                    "instrument"     => $instrument,
+                    "event_id"       => $event_id,
+                    "response_id"    => $response_id
                 ]);
 
                 $field = $projectSettings["id-field"][$index];
 
-                if ($field !== NULL) {
-?>
-                    <script type='text/javascript' defer>
-                        setTimeout(function() {
-                            $(document).ready(function() {
-                                field = $(`input[name="<?= $field ?>"]`);
-                                id = "<?= $id ?>";
-                                if (field.length) {
-                                    field.val(id);
-                                    field.closest('tr').addClass('@READONLY');
-                                }
-                            });
-                        }, 0);
-                    </script>
+                if ( $field !== NULL ) {
+                    ?>
+<script type='text/javascript' defer>
+setTimeout(function() {
+    $(document).ready(function() {
+        field = $(`input[name="<?= $field ?>"]`);
+        id = "<?= $id ?>";
+        if (field.length) {
+            field.val(id);
+            field.closest('tr').addClass('@READONLY');
+        }
+    });
+}, 0);
+</script>
 <?php
                 }
             }
@@ -101,40 +101,45 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
      */
     function authenticate()
     {
+        try {
 
-        require_once __DIR__ . '/vendor/jasig/phpcas/CAS.php';
+            require_once __DIR__ . '/vendor/apereo/phpcas/CAS.php';
 
-        $cas_host = $this->getSystemSetting("cas-host");
-        $cas_context = $this->getSystemSetting("cas-context");
-        $cas_port = (int) $this->getSystemSetting("cas-port");
-        $cas_server_ca_cert_id = $this->getSystemSetting("cas-server-ca-cert-pem");
-        $cas_server_ca_cert_path = $this->getFile($cas_server_ca_cert_id);
-        $server_force_https = $this->getSystemSetting("server-force-https");
-        $service_base_url = APP_PATH_WEBROOT_FULL;
+            $cas_host                = $this->getSystemSetting("cas-host");
+            $cas_context             = $this->getSystemSetting("cas-context");
+            $cas_port                = (int) $this->getSystemSetting("cas-port");
+            $cas_server_ca_cert_id   = $this->getSystemSetting("cas-server-ca-cert-pem");
+            $cas_server_ca_cert_path = empty($cas_server_ca_cert_id) ? $this->getSafePath('cacert.pem') : $this->getFile($cas_server_ca_cert_id);
+            $server_force_https      = $this->getSystemSetting("server-force-https");
+            $service_base_url        = APP_PATH_WEBROOT_FULL;
 
-        // Enable https fix
-        if ($server_force_https == 1) {
-            $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
-            $_SERVER['HTTP_X_FORWARDED_PORT'] = 443;
-            $_SERVER['HTTPS'] = 'on';
-            $_SERVER['SERVER_PORT'] = 443;
+            // Enable https fix
+            if ( $server_force_https == 1 ) {
+                $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+                $_SERVER['HTTP_X_FORWARDED_PORT']  = 443;
+                $_SERVER['HTTPS']                  = 'on';
+                $_SERVER['SERVER_PORT']            = 443;
+            }
+
+            // Initialize phpCAS
+            \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context, $service_base_url, false);
+
+            // Set the CA certificate that is the issuer of the cert
+            // on the CAS server
+            \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
+
+            // Don't exit, let me handle instead
+            \CAS_GracefullTerminationException::throwInsteadOfExiting();
+
+            // force CAS authentication
+            \phpCAS::forceAuthentication();
+
+            // Return authenticated username
+            return \phpCAS::getUser();
+        } catch ( \Throwable $e ) {
+            $this->log('error authenticating', [ 'error' => $e->getMessage() ]);
+            return false;
         }
-
-        // Initialize phpCAS
-        \phpCAS::client(CAS_VERSION_2_0, $cas_host, $cas_port, $cas_context, $service_base_url);
-
-        // Set the CA certificate that is the issuer of the cert
-        // on the CAS server
-        \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
-
-        // Don't exit, let me handle instead
-        \CAS_GracefullTerminationException::throwInsteadOfExiting();
-
-        // force CAS authentication
-        \phpCAS::forceAuthentication();
-
-        // Return authenticated username
-        return \phpCAS::getUser();
     }
 
 
@@ -147,10 +152,10 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
      */
     private function getFile(string $edocId)
     {
-        if ($edocId === NULL) {
+        if ( $edocId === NULL ) {
             return "";
         }
-        $result = $this->query('SELECT stored_name FROM redcap_edocs_metadata WHERE doc_id = ?', $edocId);
+        $result   = $this->query('SELECT stored_name FROM redcap_edocs_metadata WHERE doc_id = ?', $edocId);
         $filename = $result->fetch_assoc()["stored_name"];
         return EDOC_PATH . $filename;
     }
@@ -169,9 +174,9 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
     {
 
         // project-level settings
-        if (count($settings["survey"]) > 0) {
-            foreach ($settings["survey"] as $i => $form) {
-                $id_field = $settings["id-field"][$i];
+        if ( count($settings["survey"]) > 0 ) {
+            foreach ( $settings["survey"] as $i => $form ) {
+                $id_field   = $settings["id-field"][$i];
                 $project_id = $this->getProjectId();
 
                 // form must be a survey
@@ -179,13 +184,13 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
                     'SELECT survey_id FROM redcap_surveys
                     WHERE project_id = ?
                     AND form_name = ?',
-                    [$project_id, $form]
+                    [ $project_id, $form ]
                 );
-                if ($surveyResult->num_rows < 1) {
+                if ( $surveyResult->num_rows < 1 ) {
                     return "The selected form ($form) is not enabled as a survey.";
                 }
 
-                if (!$id_field) {
+                if ( !$id_field ) {
                     continue;
                 }
 
@@ -195,13 +200,13 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
                     WHERE project_id = ?
                     AND form_name = ?
                     AND field_name = ?',
-                    [$project_id, $form, $id_field]
+                    [ $project_id, $form, $id_field ]
                 );
-                if ($fieldResult->num_rows < 1) {
+                if ( $fieldResult->num_rows < 1 ) {
                     return "The selected id field ($id_field) is not on the selected survey ($form).";
                 }
                 $row = $fieldResult->fetch_assoc();
-                if ($row["element_type"] !== "text") {
+                if ( $row["element_type"] !== "text" ) {
                     return "The selected id field ($id_field) is not a text input field.";
                 }
             }

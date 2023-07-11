@@ -4,10 +4,10 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "08f43186eaf09f30f644e3898b3c762d",
+    "content-hash": "bda8f702631b0275d01d453535c44f87",
     "packages": [
         {
-            "name": "jasig/phpcas",
+            "name": "apereo/phpcas",
             "version": "1.6.1",
             "source": {
                 "type": "git",

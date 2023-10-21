@@ -44,7 +44,7 @@
     "project-settings": [
         {
             "key": "survey-subsettings",
-            "name": "<strong>Select surveys to add CAS to</strong>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightgreen; border: 1px solid limegreen; border-radius: 0.375rem; text-align: center;'><strong>Select surveys to add CAS to</strong></div>",
             "required": true,
             "type": "sub_settings",
             "repeatable": true,
@@ -68,6 +68,30 @@
                     "type": "field-list"
                 }
             ]
+        },
+        {
+            "key": "report-descriptive",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightsalmon; border: 1px solid salmon; border-radius: 0.375rem; text-align: center;'><strong>Select public reports to add CAS to</strong></div>",
+            "type": "descriptive"
+        },
+        {
+            "key": "report",
+            "name": "<strong>Report</strong>",
+            "required": true,
+            "type": "dropdown",
+            "repeatable": true
+        },
+        {
+            "key": "dashboard-descriptive",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightskyblue; border: 1px solid deepskyblue; border-radius: 0.375rem; text-align: center;'><strong>Select public dashboards to add CAS to</strong></div>",
+            "type": "descriptive"
+        },
+        {
+            "key": "dashboard",
+            "name": "<strong>Dashboard</strong>",
+            "required": true,
+            "type": "dropdown",
+            "repeatable": true
         }
     ],
     "framework-version": 12,
@@ -75,6 +99,6 @@
         "redcap-version-min": "13.1.27",
         "redcap-version-max": "",
         "php-version-min": "7.4.00",
-        "php-version-max": "7.99.99"
+        "php-version-max": "8.2.99"
     }
 }

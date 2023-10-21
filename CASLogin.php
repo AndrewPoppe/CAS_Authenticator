@@ -11,13 +11,19 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
 
     function redcap_every_page_top($project_id)
     {
-        var_dump('Project: ' . $project_id);
-        var_dump(PAGE);
+        echo "<style>label:has(.cas-descriptive){width:100%;}</style>";
         if ( !defined('PAGE') || in_array(PAGE, [ 'surveys/index.php' ]) === false ) {
             return;
         }
-        var_dump('It\'s running...');
 
+        $dashboard_hash = filter_input(INPUT_GET, '__dashboard', FILTER_SANITIZE_STRING);
+        $report_id = filter_input(INPUT_GET, 'report_id', FILTER_VALIDATE_INT);
+
+        if (isset($dashboard_hash)) {
+            $this->handleDashboard($dashboard_hash);
+        } elseif (isset($report_id)) {
+            $this->handleReport($report_id);
+        }
     }
 
     function redcap_survey_page_top(
@@ -30,8 +36,6 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
         $response_id,
         $repeat_instance
     ) {
-
-        var_dump('Project: ' . $project_id . ' (survey)');
 
         $projectSettings = $this->getProjectSettings();
 
@@ -88,6 +92,78 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
                 }
             }
         }
+    }
+
+    public function redcap_module_configuration_settings($project_id, $settings) {
+        if (empty($project_id)) {
+            return $settings;
+        }
+
+        foreach($settings as $index => $settingRow) {
+            //$this->log('settingRow', [ 'settingRow' => json_encode($settingRow, JSON_PRETTY_PRINT) ]);
+            if ($settingRow['key'] == 'dashboard') {
+                $settingRow['choices'] = [
+                    [
+                        'value' => '1', 'name' => 'One'
+                    ],
+                    [
+                        'value' => '2', 'name' => 'Two'
+                    ],
+                    [
+                        'value' => '3', 'name' => 'Three'
+                    ]
+                ];
+            }
+            $settings[$index] = $settingRow;
+        }
+
+        return $settings;
+
+    }
+
+    private function handleDashboard($dashboard_hash) {
+        $projectSettings = $this->getProjectSettings();
+        $dashboard = $this->getDashboardFromHash($dashboard_hash);
+        if ( $dashboard === null ) {
+            return;
+        }
+        foreach ( $projectSettings["dashboard"] as $index => $thisDashId ) {
+
+            if ( $dashboard['dash_id'] !== $thisDashId ) {
+                continue;
+            }
+
+            try {
+                $id = $this->authenticate();
+            } catch ( \CAS_GracefullTerminationException $e ) {
+                if ( $e->getCode() !== 0 ) {
+                    $this->log('error getting code', [ 'error' => $e->getMessage() ]);
+                }
+            } catch ( \Exception $e ) {
+                $this->log('error', [ 'error' => $e->getMessage() ]);
+                $this->exitAfterHook();
+            } finally {
+                if ( $id === FALSE ) {
+                    $this->exitAfterHook();
+                    return;
+                }
+
+                // Successful authentication
+                $this->log('CAS Auth Succeeded', [
+                    "CASLogin_NetId" => $id,
+                    "dashboard_hash"     => $dashboard_hash,
+                    "dashboard_id"       => $dashboard['dash_id'],
+                    "dashboard"    => $dashboard['title']
+                ]);
+            }
+        }
+    }
+
+    private function getDashboardFromHash($dashboard_hash) {
+        $project_id = $this->framework->getProjectId();
+        $sql = 'SELECT dash_id, title, hash FROM redcap_project_dashboards WHERE hash = ? AND project_id = ?';
+        $result = $this->query($sql, [$dashboard_hash, $project_id]);
+        return $this->framework->escape($result->fetch_assoc());
     }
 
     /**

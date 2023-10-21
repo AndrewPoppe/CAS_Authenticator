@@ -3,28 +3,23 @@
 namespace YaleREDCap\CASLogin;
 
 /**
- * Main EM class
- * 
- * @author Andrew Poppe
+ * @property \ExternalModules\Framework $framework
+ * @see Framework
  */
 class CASLogin extends \ExternalModules\AbstractExternalModule
 {
 
+    function redcap_every_page_top($project_id)
+    {
+        var_dump('Project: ' . $project_id);
+        var_dump(PAGE);
+        if ( !defined('PAGE') || in_array(PAGE, [ 'surveys/index.php' ]) === false ) {
+            return;
+        }
+        var_dump('It\'s running...');
 
-    /**
-     * REDCap hook
-     * 
-     * @param mixed $project_id
-     * @param mixed $record
-     * @param mixed $instrument
-     * @param mixed $event_id
-     * @param mixed $group_id
-     * @param mixed $survey_hash
-     * @param mixed $response_id
-     * @param mixed $repeat_instance
-     * 
-     * @return void
-     */
+    }
+
     function redcap_survey_page_top(
         $project_id,
         $record,
@@ -35,6 +30,8 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
         $response_id,
         $repeat_instance
     ) {
+
+        var_dump('Project: ' . $project_id . ' (survey)');
 
         $projectSettings = $this->getProjectSettings();
 
@@ -75,19 +72,19 @@ class CASLogin extends \ExternalModules\AbstractExternalModule
 
                 if ( $field !== NULL ) {
                     ?>
-<script type='text/javascript' defer>
-setTimeout(function() {
-    $(document).ready(function() {
-        field = $(`input[name="<?= $field ?>"]`);
-        id = "<?= $id ?>";
-        if (field.length) {
-            field.val(id);
-            field.closest('tr').addClass('@READONLY');
-        }
-    });
-}, 0);
-</script>
-<?php
+                    <script type='text/javascript' defer>
+                        setTimeout(function () {
+                            $(document).ready(function () {
+                                field = $(`input[name="<?= $field ?>"]`);
+                                id = "<?= $id ?>";
+                                if (field.length) {
+                                    field.val(id);
+                                    field.closest('tr').addClass('@READONLY');
+                                }
+                            });
+                        }, 0);
+                    </script>
+                    <?php
                 }
             }
         }
@@ -166,11 +163,11 @@ setTimeout(function() {
      * This is called when a user clicks "Save" in either system or project
      * configuration.
      * 
-     * @param array $settings Array of settings user is trying to set
+     * @param mixed $settings Array of settings user is trying to set
      * 
      * @return string|null if not null, the error message to show to user
      */
-    function validateSettings(array $settings)
+    function validateSettings($settings)
     {
 
         // project-level settings

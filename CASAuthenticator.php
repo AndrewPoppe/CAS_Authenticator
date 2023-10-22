@@ -27,6 +27,14 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             return;
         }
 
+        // Note: This handles the survey condition as well, since it shares the same $page
+        $initialized = $this->initializeCas();
+        if ( $initialized === false ) {
+            $this->logCas('CAS Authenticator: Error initializing CAS');
+            $this->framework->exitAfterHook();
+            return;
+        }
+
         $dashboard_hash = filter_input(INPUT_GET, '__dashboard', FILTER_SANITIZE_STRING);
         $report_hash    = filter_input(INPUT_GET, '__report', FILTER_SANITIZE_STRING);
 
@@ -66,7 +74,13 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             ]);
 
             try {
-                $id = $this->authenticate();
+                $alreadyAuthenticated = $this->isAuthenticated();
+                if ( $alreadyAuthenticated ) {
+                    $this->framework->log('CAS Authenticator: Already authenticated');
+                    $id = $this->getAuthenticatedUser();
+                } else {
+                    $id = $this->authenticate();
+                }
             } catch ( \CAS_GracefullTerminationException $e ) {
                 if ( $e->getCode() !== 0 ) {
                     $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
@@ -82,12 +96,21 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
 
                 // Successful authentication
-                $this->casLog('CAS Authenticator: Survey Auth Succeeded', [
-                    "CASAuthenticator_NetId" => $id,
-                    "instrument"             => $instrument,
-                    "event_id"               => $event_id,
-                    "response_id"            => $response_id
-                ]);
+                if ( !$alreadyAuthenticated ) {
+                    $this->casLog('CAS Authenticator: Survey Auth Succeeded', [
+                        "CASAuthenticator_NetId" => $id,
+                        "instrument"             => $instrument,
+                        "event_id"               => $event_id,
+                        "response_id"            => $response_id
+                    ]);
+                } else {
+                    $this->framework->log('CAS Authenticator: Already authenticated', [
+                        "CASAuthenticator_NetId" => $id,
+                        "instrument"             => $instrument,
+                        "event_id"               => $event_id,
+                        "response_id"            => $response_id
+                    ]);
+                }
 
                 $field = $projectSettings["id-field"][$index];
 
@@ -312,13 +335,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         return $reports;
     }
 
-    /**
-     * Initiate CAS authentication
-     * 
-     * 
-     * @return string|boolean username of authenticated user (false if not authenticated)
-     */
-    private function authenticate()
+    private function initializeCas()
     {
         try {
 
@@ -349,15 +366,54 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
             // Don't exit, let me handle instead
             \CAS_GracefullTerminationException::throwInsteadOfExiting();
+            return true;
+        } catch ( \Throwable $e ) {
+            $this->log('CAS Authenticator: Error initializing CAS', [ 'error' => $e->getMessage() ]);
+            return false;
+        }
+    }
 
+    /**
+     * Initiate CAS authentication
+     * 
+     * 
+     * @return string|boolean username of authenticated user (false if not authenticated)
+     */
+    private function authenticate()
+    {
+        try {
             // force CAS authentication
             \phpCAS::forceAuthentication();
 
             // Return authenticated username
             return \phpCAS::getUser();
         } catch ( \Throwable $e ) {
-            $this->log('CAS Authenticator: Error authenticating', [ 'error' => $e->getMessage() ]);
+            $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => $e->getMessage() ]);
             return false;
+        }
+    }
+
+    private function isAuthenticated()
+    {
+        try {
+            $authenticated = \phpCAS::isAuthenticated();
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error checking authentication', [ 'error' => $e->getMessage() ]);
+            $authenticated = false;
+        } finally {
+            return $authenticated;
+        }
+    }
+
+    private function getAuthenticatedUser()
+    {
+        try {
+            $user = \phpCAS::getUser();
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error getting authenticated user', [ 'error' => $e->getMessage() ]);
+            $user = false;
+        } finally {
+            return $user;
         }
     }
 

@@ -1,7 +1,7 @@
 {
-    "name": "CAS Survey Login",
-    "namespace": "YaleREDCap\\CASLogin",
-    "description": "This External Module enables the integration of CAS authentication in any survey.",
+    "name": "CAS Authenticator",
+    "namespace": "YaleREDCap\\CASAuthenticator",
+    "description": "This External Module enables the integration of CAS authentication in any survey, public report, or public dashboard.",
     "authors": [
         {
             "name": "Andrew Poppe",
@@ -43,9 +43,25 @@
     ],
     "project-settings": [
         {
+            "key": "general-descriptive",
+            "name": "<div class='cas-descriptive p-2' style='background-color:LightGoldenRodYellow; border: 1px solid Khaki; border-radius: 0.375rem; text-align: center;'><strong>General Settings</strong></div>",
+            "type": "descriptive"
+        },
+        {
+            "key": "logging",
+            "name": "<strong>Enable logging</strong>:<br>Check this if you want to log CAS authentication events",
+            "required": false,
+            "type": "checkbox"
+        },
+        {
+            "key": "survey-descriptive",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightgreen; border: 1px solid limegreen; border-radius: 0.375rem; text-align: center;'><strong>Surveys</strong><br>Select surveys to add CAS to</div>",
+            "type": "descriptive"
+        },
+        {
             "key": "survey-subsettings",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightgreen; border: 1px solid limegreen; border-radius: 0.375rem; text-align: center;'><strong>Select surveys to add CAS to</strong></div>",
-            "required": true,
+            "name": "<strong>Select survey</strong>",
+            "required": false,
             "type": "sub_settings",
             "repeatable": true,
             "sub_settings": [
@@ -58,7 +74,7 @@
                 {
                     "key": "survey",
                     "name": "<strong>Survey</strong>",
-                    "required": true,
+                    "required": false,
                     "type": "form-list"
                 },
                 {
@@ -71,25 +87,25 @@
         },
         {
             "key": "report-descriptive",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightsalmon; border: 1px solid salmon; border-radius: 0.375rem; text-align: center;'><strong>Select public reports to add CAS to</strong></div>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightsalmon; border: 1px solid salmon; border-radius: 0.375rem; text-align: center;'><strong>Reports</strong><br>Select public reports to add CAS to</div>",
             "type": "descriptive"
         },
         {
             "key": "report",
             "name": "<strong>Report</strong>",
-            "required": true,
+            "required": false,
             "type": "dropdown",
             "repeatable": true
         },
         {
             "key": "dashboard-descriptive",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightskyblue; border: 1px solid deepskyblue; border-radius: 0.375rem; text-align: center;'><strong>Select public dashboards to add CAS to</strong></div>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightskyblue; border: 1px solid deepskyblue; border-radius: 0.375rem; text-align: center;'><strong>Dashboards</strong><br>Select public dashboards to add CAS to</div>",
             "type": "descriptive"
         },
         {
             "key": "dashboard",
             "name": "<strong>Dashboard</strong>",
-            "required": true,
+            "required": false,
             "type": "dropdown",
             "repeatable": true
         }

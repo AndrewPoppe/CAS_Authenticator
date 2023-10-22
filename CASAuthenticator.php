@@ -30,7 +30,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         // Note: This handles the survey condition as well, since it shares the same $page
         $initialized = $this->initializeCas();
         if ( $initialized === false ) {
-            $this->logCas('CAS Authenticator: Error initializing CAS');
+            $this->casLog('CAS Authenticator: Error initializing CAS');
             $this->framework->exitAfterHook();
             return;
         }
@@ -287,9 +287,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         $surveys = [];
 
         $sql    = "SELECT form_name
-					FROM redcap_surveys
-					WHERE project_id = ?
-					ORDER BY form_name";
+                    FROM redcap_surveys
+                    WHERE project_id = ?
+                    ORDER BY form_name";
         $result = self::query($sql, [ $pid ]);
 
         while ( $row = $result->fetch_assoc() ) {

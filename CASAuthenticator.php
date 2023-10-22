@@ -118,19 +118,36 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             return $settings;
         }
 
-        $dashboards = $this->getDashboards($project_id);
-        $reports    = $this->getReports($project_id);
+        try {
+            $surveys    = $this->getSurveys($project_id);
+            $reports    = $this->getReports($project_id);
+            $dashboards = $this->getDashboards($project_id);
 
-        foreach ( $settings as &$settingRow ) {
-            if ( $settingRow['key'] == 'dashboard' ) {
-                $settingRow['choices'] = $dashboards;
-            } elseif ( $settingRow['key'] == 'report' ) {
-                $settingRow['choices'] = $reports;
+            foreach ( $settings as &$settingRow ) {
+                $this->getChoices($settingRow, $surveys, $reports, $dashboards);
+
+                if ( $settingRow['type'] == 'sub_settings' ) {
+                    foreach ( $settingRow['sub_settings'] as &$subSettingRow ) {
+                        $this->getChoices($subSettingRow, $surveys, $reports, $dashboards);
+                    }
+                }
             }
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error getting choices', [ 'error' => $e->getMessage() ]);
+        } finally {
+            return $settings;
         }
+    }
 
-        return $settings;
-
+    private function getChoices(&$row, $surveys, $reports, $dashboards)
+    {
+        if ( $row['key'] == 'survey' ) {
+            $row['choices'] = $surveys;
+        } elseif ( $row['key'] == 'dashboard' ) {
+            $row['choices'] = $dashboards;
+        } elseif ( $row['key'] == 'report' ) {
+            $row['choices'] = $reports;
+        }
     }
 
     private function handleDashboard($dashboard_hash)
@@ -240,6 +257,23 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         $sql        = 'SELECT report_id, title, hash FROM redcap_reports WHERE hash = ? AND project_id = ?';
         $result     = $this->query($sql, [ $report_hash, $project_id ]);
         return $this->framework->escape($result->fetch_assoc());
+    }
+
+    private function getSurveys($pid)
+    {
+        $surveys = [];
+
+        $sql    = "SELECT form_name
+					FROM redcap_surveys
+					WHERE project_id = ?
+					ORDER BY form_name";
+        $result = self::query($sql, [ $pid ]);
+
+        while ( $row = $result->fetch_assoc() ) {
+            $row       = static::escape($row);
+            $surveys[] = [ 'value' => $row['form_name'], 'name' => strip_tags(nl2br($row['form_name'])) ];
+        }
+        return $surveys;
     }
 
     private function getDashboards($pid)

@@ -75,7 +75,7 @@
                     "key": "survey",
                     "name": "<strong>Survey</strong>",
                     "required": false,
-                    "type": "form-list"
+                    "type": "dropdown"
                 },
                 {
                     "key": "id-field",

@@ -1,6 +1,6 @@
 # CAS Authenticator
 
-This REDCap External Module enables the integration of CAS authentication in any survey, public report, or public dashboard.
+This REDCap External Module enables the integration of [CAS authentication](https://en.wikipedia.org/wiki/Central_Authentication_Service) in any survey, public report, or public dashboard.
 
 ## Installation
 

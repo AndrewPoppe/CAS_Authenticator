@@ -15,7 +15,7 @@ Install by downloading the latest release zip and unzipping in the modules direc
 - **CAS Port**: Port of your CAS server (e.g., `443`)
 - **CAS Server CA Cert File**: The PEM file containing your CAS server's cert (e.g., [cacert.pem](https://curl.se/docs/caextract.html))
 - **HTTPS Override**: Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol.
-- 
+  
 #### Project configuration:
 
 - **Enable logging**: Check this to enable logging of CAS authentication events in the project's logging module

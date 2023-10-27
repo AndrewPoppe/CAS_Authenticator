@@ -548,8 +548,13 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
             // Return authenticated username
             return \phpCAS::getUser();
+        } catch ( \CAS_GracefullTerminationException $e ) {
+            if ( $e->getCode() !== 0 ) {
+                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+            }
+            return false;
         } catch ( \Throwable $e ) {
-            $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => $e->getMessage() ]);
+            $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => json_encode($e, JSON_PRETTY_PRINT) ]);
             return false;
         }
     }

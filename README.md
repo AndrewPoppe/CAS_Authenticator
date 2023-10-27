@@ -1,6 +1,6 @@
 # CAS Authenticator
 
-This REDCap External Module enables the integration of [CAS authentication](https://en.wikipedia.org/wiki/Central_Authentication_Service) in any survey, public report, or public dashboard.
+This REDCap External Module enables the integration of [CAS authentication](https://en.wikipedia.org/wiki/Central_Authentication_Service) in any survey, public report, public dashboard, or file repository item shared publicly.
 
 ## Installation
 
@@ -25,3 +25,7 @@ Install by downloading the latest release zip and unzipping in the modules direc
   - **ID Field**: Optional. This allows the EM to store the username of the person who authenticated. It should be a text field on the survey defined above
 - **Report**: The public report CAS should be integrated with (repeatable)
 - **Dashboard**: The public dashboard CAS should be integrated with (repeatable)
+- **File**: The file in the project's file repository that CAS should be integrated with, if sharing that file publicly 
+(repeatable)
+- **Folder**: The folder in the project's file repository that CAS should be integrated with, meaning that any files in 
+that folder will have CAS authentication if shared publicly (repeatable)

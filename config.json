@@ -31,13 +31,11 @@
         {
             "key": "cas-server-ca-cert-pem",
             "name": "<strong>CA cert pem file</strong>:<br>e.g., cacert.pem",
-            "required": false,
             "type": "file"
         },
         {
             "key": "server-force-https",
             "name": "<strong>HTTPS Override</strong>:<br>Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol",
-            "required": false,
             "type": "checkbox"
         }
     ],
@@ -50,18 +48,16 @@
         {
             "key": "logging",
             "name": "<strong>Enable logging</strong>:<br>Check this if you want to log CAS authentication events",
-            "required": false,
             "type": "checkbox"
         },
         {
             "key": "survey-descriptive",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightgreen; border: 1px solid limegreen; border-radius: 0.375rem; text-align: center;'><strong>Surveys</strong><br>Select surveys to add CAS to</div>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightgreen; border: 1px solid limegreen; border-radius: 0.375rem; text-align: center;'><strong>Surveys</strong><br>Select surveys to add CAS to<br><em>Note: this setting has no effect if surveys are disabled</em></div>",
             "type": "descriptive"
         },
         {
             "key": "survey-subsettings",
             "name": "<strong>Select survey</strong>",
-            "required": false,
             "type": "sub_settings",
             "repeatable": true,
             "sub_settings": [
@@ -69,45 +65,67 @@
                     "key": "event",
                     "name": "<strong>Event</strong>:<br>Leave blank if not applicable or if CAS should apply to the chosen survey across all events",
                     "required": false,
-                    "type": "event-list"
+                    "type": "event-list",
+                    "autocomplete": true
                 },
                 {
                     "key": "survey",
                     "name": "<strong>Survey</strong>",
                     "required": false,
-                    "type": "dropdown"
+                    "type": "dropdown",
+                    "autocomplete": true
                 },
                 {
                     "key": "id-field",
                     "name": "<strong>ID Field</strong>:<br>If you want to store the id of the person who logged in with CAS, select the field to store it here (it should be a text input field on the same survey)",
                     "required": false,
-                    "type": "field-list"
+                    "type": "field-list",
+                    "autocomplete": true
                 }
             ]
         },
         {
             "key": "report-descriptive",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightsalmon; border: 1px solid salmon; border-radius: 0.375rem; text-align: center;'><strong>Reports</strong><br>Select public reports to add CAS to</div>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightsalmon; border: 1px solid salmon; border-radius: 0.375rem; text-align: center;'><strong>Reports</strong><br>Select public reports to add CAS to<br><em>Note: this setting has no effect if sharing reports publicly is disabled</em></div>",
             "type": "descriptive"
         },
         {
             "key": "report",
             "name": "<strong>Report</strong>",
-            "required": false,
             "type": "dropdown",
-            "repeatable": true
+            "repeatable": true,
+            "autocomplete": true
         },
         {
             "key": "dashboard-descriptive",
-            "name": "<div class='cas-descriptive p-2' style='background-color:lightskyblue; border: 1px solid deepskyblue; border-radius: 0.375rem; text-align: center;'><strong>Dashboards</strong><br>Select public dashboards to add CAS to</div>",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightskyblue; border: 1px solid deepskyblue; border-radius: 0.375rem; text-align: center;'><strong>Dashboards</strong><br>Select public dashboards to add CAS to<br><em>Note: this setting has no effect if sharing dashboards publicly is disabled</em></div>",
             "type": "descriptive"
         },
         {
             "key": "dashboard",
             "name": "<strong>Dashboard</strong>",
-            "required": false,
             "type": "dropdown",
-            "repeatable": true
+            "repeatable": true,
+            "autocomplete": true
+        },
+        {
+            "key": "file-repository-descriptive",
+            "name": "<div class='cas-descriptive p-2' style='background-color:plum; border: 1px solid purple; border-radius: 0.375rem; text-align: center;'><strong>File Repository</strong><br>Select files and/or entire folders from the file repository to add CAS to.<br><em>Note: this setting has no effect if sharing files publicly is disabled</em></div>",
+            "type": "descriptive"
+        },
+        {
+            "key": "file",
+            "name": "<strong>File</strong><br>Choose any file from the file repository",
+            "type": "dropdown",
+            "repeatable": true,
+            "autocomplete": true
+        },
+        {
+            "key": "folder",
+            "name": "<strong>Folder</strong><br>Choose any folder from the file repository. All files in the folder will be protected by CAS when shared publicly",
+            "type": "dropdown",
+            "repeatable": true,
+            "autocomplete": true
         }
     ],
     "framework-version": 12,
@@ -115,6 +133,6 @@
         "redcap-version-min": "13.1.27",
         "redcap-version-max": "",
         "php-version-min": "7.4.00",
-        "php-version-max": "8.2.99"
+        "php-version-max": "8.3.99"
     }
 }

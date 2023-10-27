@@ -37,11 +37,14 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
         $dashboard_hash = filter_input(INPUT_GET, '__dashboard', FILTER_SANITIZE_STRING);
         $report_hash    = filter_input(INPUT_GET, '__report', FILTER_SANITIZE_STRING);
+        $file_hash      = filter_input(INPUT_GET, '__file', FILTER_SANITIZE_STRING);
 
         if ( isset($dashboard_hash) ) {
             $this->handleDashboard($dashboard_hash);
         } elseif ( isset($report_hash) ) {
             $this->handleReport($report_hash);
+        } elseif ( isset($file_hash) ) {
+            $this->handleFile($file_hash);
         }
     }
 
@@ -55,7 +58,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         $response_id,
         $repeat_instance
     ) {
-
         $projectSettings = $this->framework->getProjectSettings();
 
         foreach ( $projectSettings["survey"] as $index => $surveyName ) {
@@ -73,14 +75,10 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 "event_id"   => $event_id,
             ]);
 
+            $surveyPage = filter_input(INPUT_GET, '__page__', FILTER_SANITIZE_NUMBER_INT);
+
             try {
-                $alreadyAuthenticated = $this->isAuthenticated();
-                if ( $alreadyAuthenticated ) {
-                    $this->framework->log('CAS Authenticator: Already authenticated');
-                    $id = $this->getAuthenticatedUser();
-                } else {
-                    $id = $this->authenticate();
-                }
+                $id = $this->authenticate();
             } catch ( \CAS_GracefullTerminationException $e ) {
                 if ( $e->getCode() !== 0 ) {
                     $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
@@ -96,7 +94,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
 
                 // Successful authentication
-                if ( !$alreadyAuthenticated ) {
+                if ( $surveyPage === 1 || empty($surveyPage) ) {
                     $this->casLog('CAS Authenticator: Survey Auth Succeeded', [
                         "CASAuthenticator_NetId" => $id,
                         "instrument"             => $instrument,
@@ -104,11 +102,12 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                         "response_id"            => $response_id
                     ]);
                 } else {
-                    $this->framework->log('CAS Authenticator: Already authenticated', [
+                    $this->framework->log('CAS Authenticator: Survey Auth Succeeded', [
                         "CASAuthenticator_NetId" => $id,
                         "instrument"             => $instrument,
                         "event_id"               => $event_id,
-                        "response_id"            => $response_id
+                        "response_id"            => $response_id,
+                        "survey_page"            => $surveyPage
                     ]);
                 }
 
@@ -145,13 +144,27 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $surveys    = $this->getSurveys($project_id);
             $reports    = $this->getReports($project_id);
             $dashboards = $this->getDashboards($project_id);
+            $files = $this->getFiles($project_id);
+            $folders = $this->getFolders($project_id);
 
             foreach ( $settings as &$settingRow ) {
-                $this->getChoices($settingRow, $surveys, $reports, $dashboards);
+                $this->getChoices($settingRow, [
+                    "surveys" => $surveys,
+                    "reports" => $reports,
+                    "dashboards" => $dashboards,
+                    "files" => $files,
+                    "folders" => $folders
+                ]);
 
                 if ( $settingRow['type'] == 'sub_settings' ) {
                     foreach ( $settingRow['sub_settings'] as &$subSettingRow ) {
-                        $this->getChoices($subSettingRow, $surveys, $reports, $dashboards);
+                        $this->getChoices($subSettingRow, [
+                            "surveys" => $surveys,
+                            "reports" => $reports,
+                            "dashboards" => $dashboards,
+                            "files" => $files,
+                            "folders" => $folders
+                        ]);
                     }
                 }
             }
@@ -162,14 +175,18 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
-    private function getChoices(&$row, $surveys, $reports, $dashboards)
+    private function getChoices(&$row, $data)
     {
         if ( $row['key'] == 'survey' ) {
-            $row['choices'] = $surveys;
+            $row['choices'] = $data['surveys'];
         } elseif ( $row['key'] == 'dashboard' ) {
-            $row['choices'] = $dashboards;
+            $row['choices'] = $data['dashboards'];
         } elseif ( $row['key'] == 'report' ) {
-            $row['choices'] = $reports;
+            $row['choices'] = $data['reports'];
+        } elseif ($row['key'] == 'file' ) {
+            $row['choices'] = $data['files'];
+        } elseif ($row['key'] == 'folder' ) {
+            $row['choices'] = $data['folders'];
         }
     }
 
@@ -266,11 +283,116 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
+    private function handleFile ($file_hash) {
+        $projectSettings = $this->framework->getProjectSettings();
+
+        $file = $this->getFileFromHash($file_hash);
+        
+        if ( $file === null ) {
+            $this->framework->log('CAS Authenticator: File not found', [ 'file_hash' => $file_hash ]);
+            return;
+        }
+
+        // First check if this file individually should be CAS'd
+        $matched = false;
+        foreach ( $projectSettings["file"] as $thisDocsId ) {
+            if ($file['docs_id'] == $thisDocsId) {
+                $matched = true;
+                break;
+            }
+        }
+
+        // Check if the file is in a folder that should be CAS'd
+        if ($matched === false && $file['folder_id'] !== null) {
+            foreach ($projectSettings['folder'] as $thisFolderId) {
+                $allFolderIds = $this->getAllFolderIds($file['folder_id']);
+                if (in_array($thisFolderId, $allFolderIds)) {
+                    $matched = true;
+                    break;
+                }
+            }
+        }
+
+        if ($matched === false) {
+            return;
+        }
+
+        try {
+            $id = $this->authenticate();
+        } catch ( \CAS_GracefullTerminationException $e ) {
+            if ( $e->getCode() !== 0 ) {
+                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+            }
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
+            $this->framework->exitAfterHook();
+        } finally {
+            if ( $id === false ) {
+                $this->framework->exitAfterHook();
+                return;
+            }
+
+            // Successful authentication
+            $this->casLog('CAS Authenticator: File Auth Succeeded', [
+                "CASAuthenticator_NetId" => $id,
+                "file_hash"            => $file_hash,
+                "docs_id"              => $file['docs_id'],
+                "filename"                 => $file['docs_name']
+            ]);
+        }
+    }
+
+    private function getFileFromHash($hash) {
+        $sql = "SELECT rds.docs_id, rdff.folder_id, rd.docs_name
+                FROM redcap_docs_share rds
+                LEFT JOIN redcap_docs_folders_files rdff 
+                ON rds.docs_id = rdff.docs_id
+                LEFT JOIN redcap_docs rd
+                ON rds.docs_id = rd.docs_id
+                WHERE rds.hash = ?";
+        $result = $this->framework->query($sql, [ $hash ]);
+        return $this->framework->escape($result->fetch_assoc());
+    }
+
+
+    /**
+     * Get all parent folder IDs for a given folder ID (including self)
+     * @param mixed $folder_id
+     * @return array folder IDs
+     */
+    private function getAllFolderIds($folder_id) {
+        if (empty($folder_id)) {
+            return [];
+        }
+        $folders = [$folder_id];
+        $nextFolderId = $this->getParentFolderId($folder_id);
+        while ($nextFolderId !== null) {
+            $folders[] = $nextFolderId;
+            $nextFolderId = $this->getParentFolderId($nextFolderId);
+        }
+        return $folders;
+    }
+
+    private function getParentFolderId($folder_id) {
+        if (empty($folder_id)) {
+            return null;
+        }
+        $sql = "SELECT parent_folder_id
+                FROM redcap_docs_folders
+                WHERE folder_id = ?";
+        $result = $this->framework->query($sql, [ $folder_id ]);
+        $row = $result->fetch_assoc();
+        if (empty($row)) {
+            return null;
+        }
+        return $row['parent_folder_id'];
+    }
+
     private function getDashboardFromHash($dashboard_hash)
     {
         $project_id = $this->framework->getProjectId();
         $sql        = 'SELECT dash_id, title, hash FROM redcap_project_dashboards WHERE hash = ? AND project_id = ?';
-        $result     = $this->query($sql, [ $dashboard_hash, $project_id ]);
+        $result     = $this->framework->query($sql, [ $dashboard_hash, $project_id ]);
         return $this->framework->escape($result->fetch_assoc());
     }
 
@@ -284,17 +406,30 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     private function getSurveys($pid)
     {
+        $forms = [];
         $surveys = [];
 
-        $sql    = "SELECT form_name
+        $formsSql = "SELECT DISTINCT form_name
+                    FROM redcap_metadata
+                    WHERE project_id = ?
+                    ORDER BY form_name";
+        $formsResult = $this->framework->query($formsSql, [ $pid ]);
+        while ($formsRow = $formsResult->fetch_assoc()) {
+            $forms[] = $formsRow['form_name'];
+        }
+
+        $surveysSql    = "SELECT form_name
                     FROM redcap_surveys
                     WHERE project_id = ?
                     ORDER BY form_name";
-        $result = self::query($sql, [ $pid ]);
+        $surveysResult = self::query($surveysSql, [ $pid ]);
 
-        while ( $row = $result->fetch_assoc() ) {
-            $row       = static::escape($row);
-            $surveys[] = [ 'value' => $row['form_name'], 'name' => strip_tags(nl2br($row['form_name'])) ];
+        while ( $surveysRow = $surveysResult->fetch_assoc() ) {
+            if ( !in_array($surveysRow['form_name'], $forms) ) {
+                continue;
+            }
+            $surveysRow       = static::escape($surveysRow);
+            $surveys[] = [ 'value' => $surveysRow['form_name'], 'name' => strip_tags(nl2br($surveysRow['form_name'])) ];
         }
         return $surveys;
     }
@@ -333,6 +468,32 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $reports[] = [ 'value' => $row['report_id'], 'name' => strip_tags(nl2br($row['title'])) ];
         }
         return $reports;
+    }
+
+    private function getFiles($pid) {
+        $files = [];
+        $sql = "SELECT docs_id, docs_name
+                FROM redcap_docs
+                WHERE project_id = ?";
+        $result = $this->framework->query($sql, [ $pid ]);
+        while ( $row = $result->fetch_assoc() ) {
+            $row       = $this->framework->escape($row);
+            $files[] = [ 'value' => $row['docs_id'], 'name' => strip_tags(nl2br($row['docs_name'])) ];
+        }
+        return $files;
+    }
+
+    private function getFolders($pid) {
+        $folders = [];
+        $sql = "SELECT folder_id, name
+                FROM redcap_docs_folders
+                WHERE project_id = ?";
+        $result = $this->framework->query($sql, [ $pid ]);
+        while ( $row = $result->fetch_assoc() ) {
+            $row       = $this->framework->escape($row);
+            $folders[] = [ 'value' => $row['folder_id'], 'name' => strip_tags(nl2br($row['name'])) ];
+        }
+        return $folders;
     }
 
     private function initializeCas()
@@ -390,30 +551,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         } catch ( \Throwable $e ) {
             $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => $e->getMessage() ]);
             return false;
-        }
-    }
-
-    private function isAuthenticated()
-    {
-        try {
-            $authenticated = \phpCAS::isAuthenticated();
-        } catch ( \Throwable $e ) {
-            $this->framework->log('CAS Authenticator: Error checking authentication', [ 'error' => $e->getMessage() ]);
-            $authenticated = false;
-        } finally {
-            return $authenticated;
-        }
-    }
-
-    private function getAuthenticatedUser()
-    {
-        try {
-            $user = \phpCAS::getUser();
-        } catch ( \Throwable $e ) {
-            $this->framework->log('CAS Authenticator: Error getting authenticated user', [ 'error' => $e->getMessage() ]);
-            $user = false;
-        } finally {
-            return $user;
         }
     }
 

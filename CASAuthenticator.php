@@ -9,6 +9,87 @@ namespace YaleREDCap\CASAuthenticator;
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
+    
+    
+    private function curPageURL() {
+        $pageURL = 'http';
+        if(isset($_SERVER["HTTPS"]))
+        if ($_SERVER["HTTPS"] == "on") {
+            $pageURL .= "s";
+        }
+        $pageURL .= "://";
+        if ($_SERVER["SERVER_PORT"] != "80") {
+            $pageURL .= $_SERVER["SERVER_NAME"] . ":" . $_SERVER["SERVER_PORT"] . $_SERVER["REQUEST_URI"];
+        } else {
+            $pageURL .= $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"];
+        }
+        return $pageURL;
+    }
+
+    public function redcap_every_page_before_render($project_id = null)
+    {
+        $page = defined('PAGE') ? PAGE : null;
+        if ( empty($page) ) {
+            return;
+        }
+
+        // Already logged in
+        if (defined('USERID') && defined('USERID') !== '') {
+            return;
+        }
+
+        // Only authenticate if we're asked to
+        parse_str($_SERVER['QUERY_STRING'], $query);
+        if ( !isset($query['CAS_auth']) ) {
+            return;
+        }
+
+        $initialized = $this->initializeCas();
+        if ( $initialized === false ) {
+            $this->framework->log('CAS Authenticator: Error initializing CAS');
+            return;
+        }
+
+        try {
+            $this->framework->log('CAS Authenticator: Attempting to authenticate');
+            $id = $this->authenticate();
+        } catch ( \CAS_GracefullTerminationException $e ) {
+            if ( $e->getCode() !== 0 ) {
+                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+            }
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
+        } finally {
+            if ( $id === false ) {
+                $this->framework->log('CAS Authenticator: Auth Failed', [
+                    "page"       => $page
+                ]);
+                $this->exitAfterHook();
+                return;
+            }
+
+            $isTableUser = \Authentication::isTableUser($id);
+            if ( !$isTableUser ) {
+                $this->framework->log('CAS Authenticator: User not in table', [
+                    "CASAuthenticator_NetId" => $id,
+                    "page"                   => $page
+                ]);
+                echo "You do not currently have an account in this REDCap Server.";
+                $this->exitAfterHook();
+                return;
+            }
+
+            // Successful authentication
+            $this->framework->log('CAS Authenticator: Auth Succeeded', [
+                "CASAuthenticator_NetId" => $id,
+                "page"                   => $page
+            ]);
+            \Authentication::autoLogin($id);
+            \HttpClient::redirect($this->curPageURL(), true, 302);
+        }
+
+    }
+
     public function redcap_every_page_top($project_id)
     {
         $page = defined('PAGE') ? PAGE : null;

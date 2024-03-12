@@ -9,93 +9,142 @@ namespace YaleREDCap\CASAuthenticator;
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
-    
-    
-    private function curPageURL() {
-        $pageURL = 'http';
-        if(isset($_SERVER["HTTPS"]))
-        if ($_SERVER["HTTPS"] == "on") {
-            $pageURL .= "s";
-        }
-        $pageURL .= "://";
-        if ($_SERVER["SERVER_PORT"] != "80") {
-            $pageURL .= $_SERVER["SERVER_NAME"] . ":" . $_SERVER["SERVER_PORT"] . $_SERVER["REQUEST_URI"];
-        } else {
-            $pageURL .= $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"];
-        }
-        return $pageURL;
-    }
-
     public function redcap_every_page_before_render($project_id = null)
     {
-        $page = defined('PAGE') ? PAGE : null;
+        try {
+            
+            $this->framework->log(1);
+            $page = defined('PAGE') ? PAGE : null;
         if ( empty($page) ) {
+            $this->framework->log(2);
             return;
         }
 
         // Already logged in
-        if (defined('USERID') && defined('USERID') !== '') {
+        if ((defined('USERID') && defined('USERID') !== '') || $this->framework->isAuthenticated()) {
+            $this->framework->log(3);
             return;
         }
 
-        // Only authenticate if we're asked to
+        // url to redirect to after login
+        $redirect = $this->curPageURL();
+        $this->framework->log(4);
+
+        // Only authenticate if we're asked to (but include the login page HTML if we're not logged in)
         parse_str($_SERVER['QUERY_STRING'], $query);
+        $this->framework->log(5);
         if ( !isset($query['CAS_auth']) ) {
+            $this->framework->log(6);
             return;
         }
 
         $initialized = $this->initializeCas();
+        $this->framework->log(7);
         if ( $initialized === false ) {
+            $this->framework->log(8);
             $this->framework->log('CAS Authenticator: Error initializing CAS');
-            return;
+            throw new \Exception('Error initializing CAS');
         }
 
-        try {
+        
             $this->framework->log('CAS Authenticator: Attempting to authenticate');
-            $id = $this->authenticate();
-        } catch ( \CAS_GracefullTerminationException $e ) {
-            if ( $e->getCode() !== 0 ) {
-                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
-            }
-        } catch ( \Throwable $e ) {
-            $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-        } finally {
-            if ( $id === false ) {
+            $this->framework->log(9);
+            $userid = $this->authenticate();
+            $this->framework->log(10);
+            if ( $userid === false ) {
+                $this->framework->log(11);
                 $this->framework->log('CAS Authenticator: Auth Failed', [
                     "page"       => $page
                 ]);
-                $this->exitAfterHook();
-                return;
-            }
-
-            $isTableUser = \Authentication::isTableUser($id);
-            if ( !$isTableUser ) {
-                $this->framework->log('CAS Authenticator: User not in table', [
-                    "CASAuthenticator_NetId" => $id,
-                    "page"                   => $page
-                ]);
-                echo "You do not currently have an account in this REDCap Server.";
-                $this->exitAfterHook();
-                return;
+                //$this->exitAfterHook();
+                throw new \Exception('CAS Authentication failed');
+                // return;
             }
 
             // Successful authentication
             $this->framework->log('CAS Authenticator: Auth Succeeded', [
-                "CASAuthenticator_NetId" => $id,
+                "CASAuthenticator_NetId" => $userid,
                 "page"                   => $page
             ]);
-            \Authentication::autoLogin($id);
-            \HttpClient::redirect($this->curPageURL(), true, 302);
+
+            // strip the "CAS_auth" parameter from the URL
+            $redirectStripped = $this->stripQueryParameter($redirect, 'CAS_auth');
+
+            $this->framework->log(12);
+            \Authentication::autoLogin($userid);
+            
+            $this->framework->log(13);
+            \Authentication::setUserLastLoginTimestamp($userid);
+            
+            $this->framework->log(14);
+            \Logging::logPageView("LOGIN_SUCCESS", $userid);
+            //$row = \User::getUserInfo($userid);
+            //$res = \Authentication::checkLogin('',$GLOBALS['auth_meth_global']);
+            //var_dump($row);
+            $this->framework->log(15);
+            redirect($redirectStripped, true);
+            return;
+        } catch ( \CAS_GracefullTerminationException $e ) {
+            if ( $e->getCode() !== 0 ) {
+                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+                \phpCAS::logout();
+                $this->exitAfterHook();
+                return;
+            }
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
+            //\phpCAS::logout();
+            $this->exitAfterHook();
+            return;
+        } finally {
+            
+
+            // $isTableUser = \Authentication::isTableUser($userid);
+            // if ( !$isTableUser ) {
+            //     $this->framework->log('CAS Authenticator: User not in table', [
+            //         "CASAuthenticator_NetId" => $userid,
+            //         "page"                   => $page
+            //     ]);
+            //     // // Get random value for temporary password
+            //     // $pass = generateRandomHash(24);
+            //     // $password_salt = \Authentication::generatePasswordSalt();
+            //     // $hashed_password = \Authentication::hashPassword($pass, $password_salt);
+            //     // // Add to table
+            //     // $sql = "INSERT INTO redcap_auth (username, password, password_salt, temp_pwd)
+            //     //         VALUES ('" . db_escape($userid) . "', '" . db_escape($hashed_password) . "', '" . db_escape($password_salt) . "', 0)";
+            //     // $q = db_query($sql);
+
+                
+                
+            //     //echo "You do not currently have an account in this REDCap Server.";
+            //     // global $lang;
+            //     // \System::$userJustLoggedIn = true;
+            //     // $_POST['username'] = $userid;
+            //     // $_SESSION['username'] = $userid;
+            //     // \phpCAS::forceAuthentication();
+            //     // var_dump(\phpCAS::getAttributes());
+            //     // exit;
+            //     // \Authentication::autoLogin($userid);
+            //     // include APP_PATH_DOCROOT . "Profile/user_info.php";
+            //     // $this->exitAfterHook();
+            //     // return;
+            // }
+
+            
         }
 
     }
 
     public function redcap_every_page_top($project_id)
     {
+
         $page = defined('PAGE') ? PAGE : null;
         if ( empty($page) ) {
             return;
         }
+
+        // If we're on the login page, inject the CAS login button
+        $this->injectLoginPage($this->curPageURL());
 
         // If we're on the EM Manager page, add a little CSS to make the
         // setting descriptives wider in the project settings
@@ -256,6 +305,90 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
+    private function injectLoginPage(string $redirect) {
+        ?>
+        <style>
+            .btn-cas {
+                color: #fff;
+                background-color: #00356b;
+                border-color: #222222;
+            }
+            .btn-cas:hover {
+                color: #fff;
+                background-color: #286dc0;
+                border-color: #286dc0;
+            }
+        </style>
+        <script>
+            $(document).ready(function () {
+                if ($('#rc-login-form').length === 0) {
+                    return;
+                }
+                $('#rc-login-form').hide();
+
+                const loginButton = `<button class="btn btn-sm btn-cas fs15 my-2" onclick="showProgress(1);window.location.href='<?= $this->addQueryParameter($redirect, 'CAS_auth', '1')?>';"><i class="fas fa-sign-in-alt"></i> <span>Login with CAS</span></button>`;
+                const orText = '<span class="text-secondary mx-3 my-2 nowrap">-- <?=\RCView::tt('global_46')?> --</span>';
+                const loginChoiceSpan = $('span[data-rc-lang="global_257"]');
+                if (loginChoiceSpan.length > 0) {
+                    const firstButton = loginChoiceSpan.closest('div').find('button').eq(0);
+                    firstButton.before(loginButton);
+                    firstButton.before(orText);
+                } else {
+                    const loginDiv = `<div class="my-4 fs14">
+                        <div class="mb-4"><?=\RCView::tt('global_253')?></div>
+                        <div>
+                            <span class="text-secondary my-2 me-3"><?=\RCView::tt('global_257')?></span>
+                            ${loginButton}
+                            ${orText}
+                            <button class="btn btn-sm btn-rcgreen fs15 my-2" onclick="$('#rc-login-form').toggle();"><i class="fas fa-sign-in-alt"></i> <?=\RCView::tt('global_258')?></button>
+                        </div>
+                    </div>`;
+                    $('#rc-login-form').before(loginDiv);
+                }
+            });
+        </script>
+        <?php
+    }
+
+    private function curPageURL() {
+        $pageURL = 'http';
+        if(isset($_SERVER["HTTPS"]))
+        if ($_SERVER["HTTPS"] == "on") {
+            $pageURL .= "s";
+        }
+        $pageURL .= "://";
+        if ($_SERVER["SERVER_PORT"] != "80") {
+            $pageURL .= $_SERVER["SERVER_NAME"] . ":" . $_SERVER["SERVER_PORT"] . $_SERVER["REQUEST_URI"];
+        } else {
+            $pageURL .= $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"];
+        }
+        return $pageURL;
+    }
+
+    private function stripQueryParameter($url, $param) {
+        $parsed = parse_url($url);
+        $baseUrl = strtok($url, '?');
+        if (isset($parsed['query'])) {
+            parse_str($parsed['query'], $params);
+            unset($params[$param]);
+            $parsed = http_build_query($params);
+        }
+        return $baseUrl . (empty($parsed) ? '' : '?') . $parsed;
+    }
+
+    private function addQueryParameter(string $url, string $param, string $value = '') {
+        $parsed = parse_url($url);
+        $baseUrl = strtok($url, '?');
+        if (isset($parsed['query'])) {
+            parse_str($parsed['query'], $params);
+            $params[$param] = $value;
+            $parsed = http_build_query($params);
+        } else {
+            $parsed = http_build_query([$param => $value]);
+        }
+        return $baseUrl . (empty($parsed) ? '' : '?') . $parsed;
+    }
+
     private function getChoices(&$row, $data)
     {
         if ( $row['key'] == 'survey' ) {
@@ -268,6 +401,13 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $row['choices'] = $data['files'];
         } elseif ($row['key'] == 'folder' ) {
             $row['choices'] = $data['folders'];
+        }
+    }
+
+    private function handleLogout()
+    {
+        if (isset($_GET['logout']) && $_GET['logout']) {
+            \phpCAS::logout();
         }
     }
 
@@ -589,7 +729,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $cas_server_ca_cert_id   = $this->getSystemSetting("cas-server-ca-cert-pem");
             $cas_server_ca_cert_path = empty($cas_server_ca_cert_id) ? $this->getSafePath('cacert.pem') : $this->getFile($cas_server_ca_cert_id);
             $server_force_https      = $this->getSystemSetting("server-force-https");
-            $service_base_url        = APP_PATH_WEBROOT_FULL;
+            $service_base_url        = (SSL ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];//APP_PATH_WEBROOT_FULL;
 
             // Enable https fix
             if ( $server_force_https == 1 ) {

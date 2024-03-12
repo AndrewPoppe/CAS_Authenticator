@@ -11,54 +11,41 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     public function redcap_every_page_before_render($project_id = null)
     {
-        try {
-            
-            $this->framework->log(1);
-            $page = defined('PAGE') ? PAGE : null;
+        $page = defined('PAGE') ? PAGE : null;
         if ( empty($page) ) {
-            $this->framework->log(2);
             return;
         }
 
         // Already logged in
         if ((defined('USERID') && defined('USERID') !== '') || $this->framework->isAuthenticated()) {
-            $this->framework->log(3);
             return;
         }
 
         // url to redirect to after login
         $redirect = $this->curPageURL();
-        $this->framework->log(4);
-
+     
         // Only authenticate if we're asked to (but include the login page HTML if we're not logged in)
         parse_str($_SERVER['QUERY_STRING'], $query);
-        $this->framework->log(5);
         if ( !isset($query['CAS_auth']) ) {
-            $this->framework->log(6);
             return;
         }
 
-        $initialized = $this->initializeCas();
-        $this->framework->log(7);
-        if ( $initialized === false ) {
-            $this->framework->log(8);
-            $this->framework->log('CAS Authenticator: Error initializing CAS');
-            throw new \Exception('Error initializing CAS');
-        }
+        try {
+           $initialized = $this->initializeCas();
+            if ( $initialized === false ) {
+                $this->framework->log('CAS Authenticator: Error initializing CAS');
+                throw new \Exception('Error initializing CAS');
+            }
 
         
             $this->framework->log('CAS Authenticator: Attempting to authenticate');
-            $this->framework->log(9);
             $userid = $this->authenticate();
-            $this->framework->log(10);
             if ( $userid === false ) {
-                $this->framework->log(11);
                 $this->framework->log('CAS Authenticator: Auth Failed', [
                     "page"       => $page
                 ]);
-                //$this->exitAfterHook();
-                throw new \Exception('CAS Authentication failed');
-                // return;
+                $this->exitAfterHook();
+                return;
             }
 
             // Successful authentication
@@ -70,19 +57,17 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             // strip the "CAS_auth" parameter from the URL
             $redirectStripped = $this->stripQueryParameter($redirect, 'CAS_auth');
 
-            $this->framework->log(12);
+            // Trigger login
             \Authentication::autoLogin($userid);
             
-            $this->framework->log(13);
+            // Update last login timestamp
             \Authentication::setUserLastLoginTimestamp($userid);
             
-            $this->framework->log(14);
+            // Log the login
             \Logging::logPageView("LOGIN_SUCCESS", $userid);
-            //$row = \User::getUserInfo($userid);
-            //$res = \Authentication::checkLogin('',$GLOBALS['auth_meth_global']);
-            //var_dump($row);
-            $this->framework->log(15);
-            redirect($redirectStripped, true);
+            
+            // Redirect to the page we were on
+            $this->framework->redirectAfterHook($redirectStripped);
             return;
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
@@ -93,7 +78,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             }
         } catch ( \Throwable $e ) {
             $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-            //\phpCAS::logout();
+            \phpCAS::logout();
             $this->exitAfterHook();
             return;
         } finally {

@@ -129,9 +129,9 @@
         }
     ],
     "enable-every-page-hooks-on-system-pages": true,
-    "framework-version": 12,
+    "framework-version": 14,
     "compatibility": {
-        "redcap-version-min": "13.1.27",
+        "redcap-version-min": "13.7.0",
         "redcap-version-max": "",
         "php-version-min": "7.4.00",
         "php-version-max": "8.3.99"

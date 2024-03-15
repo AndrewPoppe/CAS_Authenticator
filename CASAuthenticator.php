@@ -9,21 +9,43 @@ namespace YaleREDCap\CASAuthenticator;
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
+    public function redcap_ajax() {
+        
+    }
+
     public function redcap_every_page_before_render($project_id = null)
     {
+
+        global $enable_user_allowlist, $homepage_contact, $homepage_contact_email, $lang;
         $page = defined('PAGE') ? PAGE : null;
         if ( empty($page) ) {
             return;
         }
-
+        
+        // Handle E-Signature
+        if ($page === 'Locking/single_form_action.php') {
+            if (!isset($_POST['esign_action']) || $_POST['esign_action'] !== 'save' || !isset($_POST['username']) || !isset($_POST['cas_code'])) {
+                return;
+            }
+            $this->log('in there', [ 'code' => $this->getCode($_POST['username']) ]);
+            if ($_POST['cas_code'] !== $this->getCode($_POST['username'])) {
+                $this->log('CAS Login E-Signature: Error authenticating user');
+                $this->exitAfterHook();
+                return;
+            }
+            $this->setCode($_POST['username'], '');
+            
+            global $auth_meth_global;
+            $auth_meth_global = 'none';
+            return;
+        }
         // Already logged in
         if ((defined('USERID') && defined('USERID') !== '') || $this->framework->isAuthenticated()) {
             return;
         }
 
-        // url to redirect to after login
-        $redirect = $this->curPageURL();
-     
+        
+
         // Only authenticate if we're asked to (but include the login page HTML if we're not logged in)
         parse_str($_SERVER['QUERY_STRING'], $query);
         if ( !isset($query['CAS_auth']) ) {
@@ -54,8 +76,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 "page"                   => $page
             ]);
 
-            // strip the "CAS_auth" parameter from the URL
-            $redirectStripped = $this->stripQueryParameter($redirect, 'CAS_auth');
 
             // Trigger login
             \Authentication::autoLogin($userid);
@@ -66,58 +86,57 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             // Log the login
             \Logging::logPageView("LOGIN_SUCCESS", $userid);
             
+
+            // Handle account-related things.
+
+            // 1. If user is a table-based user, convert to CAS user
+            if (\Authentication::isTableUser($userid)) {
+                $this->convertTableUserToCasUser($userid);
+            } else {
+                $this->setCasUser($userid);
+            }
+
+            // 2. If user allowlist is not enabled, all CAS users are allowed.
+            // Otherwise, if not in allowlist, then give them error page.
+            if ($enable_user_allowlist && !$this->inUserAllowlist($userid)) {
+                session_unset();
+                session_destroy();
+                $objHtmlPage = new \HtmlPage();
+                $objHtmlPage->addExternalJS(APP_PATH_JS . "base.js");
+                $objHtmlPage->addStylesheet("home.css", 'screen,print');
+                $objHtmlPage->PrintHeader();
+                print  "<div class='red' style='margin:40px 0 20px;padding:20px;'>
+                            {$lang['config_functions_78']} \"<b>$userid</b>\"{$lang['period']}
+                            {$lang['config_functions_79']} <a href='mailto:$homepage_contact_email'>$homepage_contact</a>{$lang['period']}
+                        </div>
+                        <button onclick=\"window.location.href='".APP_PATH_WEBROOT_FULL."index.php?logout=1';\">Go back</button>";
+                print '<div id="my_page_footer">' . \REDCap::getCopyright() . '</div>';
+                $this->framework->exitAfterHook();
+                return;
+            }
+
+            // url to redirect to after login
+            $redirect = $this->curPageURL();
+            // strip the "CAS_auth" parameter from the URL
+            $redirectStripped = $this->stripQueryParameter($redirect, 'CAS_auth');
             // Redirect to the page we were on
             $this->framework->redirectAfterHook($redirectStripped);
             return;
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
                 $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
-                \phpCAS::logout();
+                session_unset();
+                session_destroy();                        
                 $this->exitAfterHook();
                 return;
             }
         } catch ( \Throwable $e ) {
             $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-            \phpCAS::logout();
+            session_unset();
+            session_destroy();                        
             $this->exitAfterHook();
             return;
-        } finally {
-            
-
-            // $isTableUser = \Authentication::isTableUser($userid);
-            // if ( !$isTableUser ) {
-            //     $this->framework->log('CAS Authenticator: User not in table', [
-            //         "CASAuthenticator_NetId" => $userid,
-            //         "page"                   => $page
-            //     ]);
-            //     // // Get random value for temporary password
-            //     // $pass = generateRandomHash(24);
-            //     // $password_salt = \Authentication::generatePasswordSalt();
-            //     // $hashed_password = \Authentication::hashPassword($pass, $password_salt);
-            //     // // Add to table
-            //     // $sql = "INSERT INTO redcap_auth (username, password, password_salt, temp_pwd)
-            //     //         VALUES ('" . db_escape($userid) . "', '" . db_escape($hashed_password) . "', '" . db_escape($password_salt) . "', 0)";
-            //     // $q = db_query($sql);
-
-                
-                
-            //     //echo "You do not currently have an account in this REDCap Server.";
-            //     // global $lang;
-            //     // \System::$userJustLoggedIn = true;
-            //     // $_POST['username'] = $userid;
-            //     // $_SESSION['username'] = $userid;
-            //     // \phpCAS::forceAuthentication();
-            //     // var_dump(\phpCAS::getAttributes());
-            //     // exit;
-            //     // \Authentication::autoLogin($userid);
-            //     // include APP_PATH_DOCROOT . "Profile/user_info.php";
-            //     // $this->exitAfterHook();
-            //     // return;
-            // }
-
-            
         }
-
     }
 
     public function redcap_every_page_top($project_id)
@@ -249,6 +268,51 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
+    public function redcap_data_entry_form() {
+        $user = $this->framework->getUser();
+        if (!$this->isCasUser($user->getUsername())) {
+            return;
+        }
+        ?>
+        <script>
+            $(document).ready(function () {
+                var numLogins = 0;
+                var esign_action_global;
+                const saveLockingOrig = saveLocking;
+                window.addEventListener('message', (event)=>{
+                    if (event.origin !== window.location.origin ) {
+                        return;
+                    }
+                    // console.log('message from popup');
+                    // console.log(event.data);
+                    const action = 'lock';
+                    $.post(app_path_webroot+"Locking/single_form_action.php?pid="+pid, {auto: getParameterByName('auto'), instance: getParameterByName('instance'), esign_action: esign_action_global, event_id: event_id, action: action, username: event.data.username, record: getParameterByName('id'), form_name: getParameterByName('page'), cas_code: event.data.code}, function(data){
+                        if (data != "") {
+                            numLogins = 0;
+                            if (auto_inc_set && getParameterByName('auto') == '1' && isinteger(data.replace('-',''))) {
+                                $('#form :input[name="'+table_pk+'"], #form :input[name="__old_id__"]').val(data);
+                            }
+                            formSubmitDataEntry();
+                        } else {
+                            numLogins++;
+                            esignFail(numLogins);
+                        }
+                    });
+                });
+                saveLocking = function(lock_action, esign_action) {
+                    if (esign_action !== 'save' || lock_action !== 1) {
+                        saveLockingOrig(lock_action, esign_action);
+                        return;
+                    }
+                    esign_action_global = esign_action;
+                    const url = '<?= $this->getUrl('cas_login.php') ?>';
+                    window.open(url, null, 'popup=true');
+                }
+            });
+        </script>
+        <?php
+    }
+
     public function redcap_module_configuration_settings($project_id, $settings)
     {
         if ( empty($project_id) ) {
@@ -290,7 +354,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
-    private function injectLoginPage(string $redirect) {
+    private function injectLoginPage(string $redirect) 
+    {
         ?>
         <style>
             .btn-cas {
@@ -335,7 +400,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         <?php
     }
 
-    private function curPageURL() {
+    private function curPageURL() 
+    {
         $pageURL = 'http';
         if(isset($_SERVER["HTTPS"]))
         if ($_SERVER["HTTPS"] == "on") {
@@ -350,7 +416,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         return $pageURL;
     }
 
-    private function stripQueryParameter($url, $param) {
+    private function stripQueryParameter($url, $param) 
+    {
         $parsed = parse_url($url);
         $baseUrl = strtok($url, '?');
         if (isset($parsed['query'])) {
@@ -361,7 +428,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         return $baseUrl . (empty($parsed) ? '' : '?') . $parsed;
     }
 
-    private function addQueryParameter(string $url, string $param, string $value = '') {
+    private function addQueryParameter(string $url, string $param, string $value = '') 
+    {
         $parsed = parse_url($url);
         $baseUrl = strtok($url, '?');
         if (isset($parsed['query'])) {
@@ -372,6 +440,16 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $parsed = http_build_query([$param => $value]);
         }
         return $baseUrl . (empty($parsed) ? '' : '?') . $parsed;
+    }
+
+    private function convertTableUserToCasUser(string $userid) {
+        if (empty($userid)) {
+            return;
+        }
+        $SQL = 'DELETE FROM redcap_auth WHERE username = ?';
+        $query = $this->framework->query($SQL, [ $userid ]);
+        $this->setCasUser($userid);
+        return;
     }
 
     private function getChoices(&$row, $data)
@@ -389,10 +467,20 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
     }
 
+    /**
+     * @param string $userid
+     * @return bool
+     */
+    private function inUserAllowlist(string $userid) {
+        $SQL = "SELECT 1 FROM redcap_user_allowlist WHERE username = ?";
+        $q = $this->framework->query($SQL, [ $userid ]);
+        return $q->fetch_assoc() !== null;
+    }
+
     private function handleLogout()
     {
         if (isset($_GET['logout']) && $_GET['logout']) {
-            \phpCAS::logout();
+            \phpCAS::logoutWithUrl(APP_PATH_WEBROOT_FULL);
         }
     }
 
@@ -702,7 +790,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         return $folders;
     }
 
-    private function initializeCas()
+    public function initializeCas()
     {
         try {
 
@@ -746,13 +834,43 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
      * 
      * @return string|boolean username of authenticated user (false if not authenticated)
      */
-    private function authenticate()
+    public function authenticate()
     {
         try {
             // force CAS authentication
             \phpCAS::forceAuthentication();
 
             // Return authenticated username
+            return \phpCAS::getUser();
+        } catch ( \CAS_GracefullTerminationException $e ) {
+            if ( $e->getCode() !== 0 ) {
+                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+            }
+            return false;
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => json_encode($e, JSON_PRETTY_PRINT) ]);
+            return false;
+        }
+    }
+
+    public function renewAuthentication()
+    {
+        try {
+
+            // \Authentication::checkLogout();
+
+            // \phpCAS::setServerLoginURL(\phpCAS::getServerLoginURL()) . '&renew=true';
+
+            // renew CAS authentication
+            //\phpCAS::getCasClient()->redirectToCas(true,true);
+            // \phpCAS::forceAuthentication();
+            \phpCAS::renewAuthentication();
+            // Return authenticated username
+            // if ( \phpCAS::getCasClient()->isAuthenticated(true)) {
+            //     return \phpCAS::getUser();
+            // }
+            // \phpCAS::getCasClient()->redirectToCas(false, true);
+            // \phpCAS::forceAuthentication();
             return \phpCAS::getUser();
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
@@ -865,4 +983,46 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
         $this->framework->log($message, $params);
     }
+
+    private function jwt_request(string $url, string $token) {
+        $result = null;
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            $authorization = "Authorization: Basic ".$token;
+            $authheader = array('Content-Type: application/json' , $authorization );
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $authheader);
+            $result = curl_exec($ch);
+            curl_close($ch);
+            $response = preg_replace("/(<\/?)(\w+):([^>]*>)/", "$1$2$3", $result);
+            $xml = new \SimpleXMLElement($response);
+            $result = json_decode(json_encode((array)$xml), TRUE);
+        } catch ( \Throwable $e ) {
+            $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
+        } finally {
+            return $result;
+        }
+
+    }
+
+    public function createCode() {
+        return uniqid('cas_', true);
+    }
+
+    public function setCode($username, $code) {
+        $this->framework->setSystemSetting('cas-code-' . $username, $code);
+    }
+    public function getCode($username) {
+        return $this->framework->getSystemSetting('cas-code-' . $username);
+    }
+
+    public function isCasUser($username) {
+        return !\Authentication::isTableUser($username) && $this->framework->getSystemSetting('cas-user-' . $username) === true;
+    }
+
+    public function setCasUser($userid) {
+        $this->framework->setSystemSetting('cas-user-' . $userid, true);
+    }
+    
 }

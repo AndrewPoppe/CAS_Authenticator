@@ -298,7 +298,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                     esign_action_global = esign_action;
                     cas_authenticator.ajax('eraseCasSession', {}).then(() => {
                         const url = '<?= $this->getUrl('cas_login.php') ?>';
-                        window.open(url, null, 'popup=true,innerWidth=500,innerHeight=600');
+                        window.open(url, null, 'popup=true,innerWidth=500,innerHeight=700');
                     });
                 }
             });

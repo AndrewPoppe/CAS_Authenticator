@@ -10,6 +10,12 @@ namespace YaleREDCap\CASAuthenticator;
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
+    public function redcap_module_ajax($action, $payload, $project_id, $record, $instrument, $event_id, $repeat_instance, $survey_hash, $response_id, $survey_queue_hash, $page, $page_full, $user_id, $group_id)
+    {
+        if ($action === 'eraseCasSession') {
+            return $this->eraseCasSession();
+        }
+    }
 
     public function redcap_every_page_before_render($project_id = null)
     {
@@ -20,7 +26,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             return;
         }
         
-        // Handle E-Signature
+        // Handle E-Signature form action
         if ($page === 'Locking/single_form_action.php') {
             if (!isset($_POST['esign_action']) || $_POST['esign_action'] !== 'save' || !isset($_POST['username']) || !isset($_POST['cas_code'])) {
                 return;
@@ -36,12 +42,11 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $auth_meth_global = 'none';
             return;
         }
-        // Already logged in
+
+        // Already logged in to REDCap
         if ((defined('USERID') && defined('USERID') !== '') || $this->framework->isAuthenticated()) {
             return;
         }
-
-        
 
         // Only authenticate if we're asked to (but include the login page HTML if we're not logged in)
         parse_str($_SERVER['QUERY_STRING'], $query);
@@ -50,15 +55,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
 
         try {
-            
-
-        
-            $this->framework->log('CAS Authenticator: Attempting to authenticate');
             $userid = $this->authenticate();
             if ( $userid === false ) {
-                $this->framework->log('CAS Authenticator: Auth Failed', [
-                    "page"       => $page
-                ]);
                 $this->exitAfterHook();
                 return;
             }
@@ -266,9 +264,11 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         if (!$this->isCasUser($user->getUsername())) {
             return;
         }
+        $this->framework->initializeJavascriptModuleObject();
         ?>
         <script>
             $(document).ready(function () {
+                const cas_authenticator = <?=$this->getJavascriptModuleObjectName()?>;
                 var numLogins = 0;
                 var esign_action_global;
                 const saveLockingOrig = saveLocking;
@@ -276,8 +276,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                     if (event.origin !== window.location.origin ) {
                         return;
                     }
-                    // console.log('message from popup');
-                    // console.log(event.data);
                     const action = 'lock';
                     $.post(app_path_webroot+"Locking/single_form_action.php?pid="+pid, {auto: getParameterByName('auto'), instance: getParameterByName('instance'), esign_action: esign_action_global, event_id: event_id, action: action, username: event.data.username, record: getParameterByName('id'), form_name: getParameterByName('page'), cas_code: event.data.code}, function(data){
                         if (data != "") {
@@ -298,8 +296,10 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                         return;
                     }
                     esign_action_global = esign_action;
-                    const url = '<?= $this->getUrl('cas_login.php') ?>';
-                    window.open(url, null, 'popup=true');
+                    cas_authenticator.ajax('eraseCasSession', {}).then(() => {
+                        const url = '<?= $this->getUrl('cas_login.php') ?>';
+                        window.open(url, null, 'popup=true,innerWidth=500,innerHeight=600');
+                    });
                 }
             });
         </script>
@@ -864,14 +864,13 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 throw new \Exception('Error initializing CAS');
             }
             
-            unset($_SESSION[\phpCAS::getCasClient()::PHPCAS_SESSION_PREFIX]);// = [];
             $cas_url = \phpCAS::getServerLoginURL() . '%26cas_authed%3Dtrue&renew=true';
             \phpCAS::setServerLoginURL($cas_url);
             \phpCAS::forceAuthentication();
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
                 $this->framework->log('CAS Login E-Signature: Error getting code', [ 'error' => $e->getMessage() ]);
-            }
+            } 
             return false;
         } catch ( \Throwable $e ) {
             $this->framework->log('CAS Login E-Signature: Error authenticating', [ 'error' => json_encode($e, JSON_PRETTY_PRINT) ]);
@@ -1021,4 +1020,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         $this->framework->setSystemSetting('cas-user-' . $userid, true);
     }
     
+    public function eraseCasSession() {
+        $this->initializeCas();
+        unset($_SESSION[\phpCAS::getCasClient()::PHPCAS_SESSION_PREFIX]);
+        return;
+    }
 }

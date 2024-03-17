@@ -5,12 +5,15 @@ namespace YaleREDCap\CASAuthenticator;
 /** @var CASAuthenticator $module */
 try {
     $module->initializeCas();
+
     parse_str($_SERVER['QUERY_STRING'], $query);
     if (!isset($query['cas_authed'])) {
         $module->renewAuthentication();
     }
-    \phpCAS::forceAuthentication();
-    $userid = \phpCAS::getUser();
+
+    if (\phpCAS::isAuthenticated()) {
+        $userid = \phpCAS::getUser();
+    }
 
     if ( !$userid ) {
         $module->framework->log('CAS Login E-Signature: Error authenticating user');
@@ -27,10 +30,15 @@ try {
     $module->setCode($userid, $code);
     ?>
     <script>
-        window.opener.postMessage({ username: '<?= $userid ?>', code: '<?= $code ?>' }, '*');
+        window.opener.postMessage({ username: '<?= $userid ?>', code: '<?= $code ?>' }, window.location.origin);
         window.close();
     </script>
     <?php
-} catch ( \Exception $e ) {
-    $module->log('error', [ 'message' => $e->getMessage() ]);
+} catch ( \CAS_GracefullTerminationException $e ) {
+    if ( $e->getCode() !== 0 ) {
+        $module->framework->log('CAS Login E-Signature: Error getting code', [ 'error' => $e->getMessage() ]);
+    }
+    return false;
+} catch ( \Throwable $e ) {
+    $module->log('error', [ 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString() ]);
 }

@@ -6,12 +6,10 @@ namespace YaleREDCap\CASAuthenticator;
  * @property \ExternalModules\Framework $framework
  * @see Framework
  */
+
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
-    public function redcap_ajax() {
-        
-    }
 
     public function redcap_every_page_before_render($project_id = null)
     {
@@ -27,7 +25,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             if (!isset($_POST['esign_action']) || $_POST['esign_action'] !== 'save' || !isset($_POST['username']) || !isset($_POST['cas_code'])) {
                 return;
             }
-            $this->log('in there', [ 'code' => $this->getCode($_POST['username']) ]);
             if ($_POST['cas_code'] !== $this->getCode($_POST['username'])) {
                 $this->log('CAS Login E-Signature: Error authenticating user');
                 $this->exitAfterHook();
@@ -53,11 +50,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
 
         try {
-           $initialized = $this->initializeCas();
-            if ( $initialized === false ) {
-                $this->framework->log('CAS Authenticator: Error initializing CAS');
-                throw new \Exception('Error initializing CAS');
-            }
+            
 
         
             $this->framework->log('CAS Authenticator: Attempting to authenticate');
@@ -792,9 +785,11 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     public function initializeCas()
     {
+        require_once __DIR__ . '/vendor/apereo/phpcas/CAS.php';
+        if (\phpCAS::isInitialized()) {
+            return true;
+        }
         try {
-
-            require_once __DIR__ . '/vendor/apereo/phpcas/CAS.php';
 
             $cas_host                = $this->getSystemSetting("cas-host");
             $cas_context             = $this->getSystemSetting("cas-context");
@@ -837,6 +832,13 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
     public function authenticate()
     {
         try {
+            
+            $initialized = $this->initializeCas();
+            if ( $initialized === false ) {
+                $this->framework->log('CAS Authenticator: Error initializing CAS');
+                throw new \Exception('Error initializing CAS');
+            }
+
             // force CAS authentication
             \phpCAS::forceAuthentication();
 
@@ -856,29 +858,23 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
     public function renewAuthentication()
     {
         try {
-
-            // \Authentication::checkLogout();
-
-            // \phpCAS::setServerLoginURL(\phpCAS::getServerLoginURL()) . '&renew=true';
-
-            // renew CAS authentication
-            //\phpCAS::getCasClient()->redirectToCas(true,true);
-            // \phpCAS::forceAuthentication();
-            \phpCAS::renewAuthentication();
-            // Return authenticated username
-            // if ( \phpCAS::getCasClient()->isAuthenticated(true)) {
-            //     return \phpCAS::getUser();
-            // }
-            // \phpCAS::getCasClient()->redirectToCas(false, true);
-            // \phpCAS::forceAuthentication();
-            return \phpCAS::getUser();
+            $initialized = $this->initializeCas();
+            if ( !$initialized ) {
+                $this->framework->log('CAS Login E-Signature: Error initializing CAS');
+                throw new \Exception('Error initializing CAS');
+            }
+            
+            unset($_SESSION[\phpCAS::getCasClient()::PHPCAS_SESSION_PREFIX]);// = [];
+            $cas_url = \phpCAS::getServerLoginURL() . '%26cas_authed%3Dtrue&renew=true';
+            \phpCAS::setServerLoginURL($cas_url);
+            \phpCAS::forceAuthentication();
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
-                $this->framework->log('CAS Authenticator: Error getting code', [ 'error' => $e->getMessage() ]);
+                $this->framework->log('CAS Login E-Signature: Error getting code', [ 'error' => $e->getMessage() ]);
             }
             return false;
         } catch ( \Throwable $e ) {
-            $this->framework->log('CAS Authenticator: Error authenticating', [ 'error' => json_encode($e, JSON_PRETTY_PRINT) ]);
+            $this->framework->log('CAS Login E-Signature: Error authenticating', [ 'error' => json_encode($e, JSON_PRETTY_PRINT) ]);
             return false;
         }
     }

@@ -349,14 +349,14 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     private function getLoginButtonSettings() {
         return [
-            'casLoginButtonBackgroundColor' => $this->framework->getSystemSetting('cas-login-button-background-color') ?? '#00356b',
-            'casLoginButtonBackgroundColorHover' => $this->framework->getSystemSetting('cas-login-button-background-color-hover') ?? '#286dc0',
+            'casLoginButtonBackgroundColor' => $this->framework->getSystemSetting('cas-login-button-background-color') ?? 'transparent',//'#00356b',
+            'casLoginButtonBackgroundColorHover' => $this->framework->getSystemSetting('cas-login-button-background-color-hover') ?? 'transparent',//'#286dc0',
             'casLoginButtonText' => $this->framework->getSystemSetting('cas-login-button-text') ?? 'Yale University',
-            'casLoginButtonLogo' => $this->framework->getSystemSetting('cas-login-button-logo') ?? '<i class="fas fa-sign-in-alt"></i>',
-            'localLoginButtonBackgroundColor' => $this->framework->getSystemSetting('local-login-button-background-color') ?? '#00a9e0',
-            'localLoginButtonBackgroundColorHover' => $this->framework->getSystemSetting('local-login-button-background-color-hover') ?? '#32bae6',
+            'casLoginButtonLogo' => $this->framework->getSystemSetting('cas-login-button-logo') ?? $this->framework->getUrl('assets/images/YU.png', true, true),//'<i class="fas fa-sign-in-alt"></i>',
+            'localLoginButtonBackgroundColor' => $this->framework->getSystemSetting('local-login-button-background-color') ?? 'transparent',//'#00a9e0',
+            'localLoginButtonBackgroundColorHover' => $this->framework->getSystemSetting('local-login-button-background-color-hover') ?? 'transparent',//'#32bae6',
             'localLoginButtonText' => $this->framework->getSystemSetting('local-login-button-text') ?? 'Yale New Haven Health',
-            'localLoginButtonLogo' => $this->framework->getSystemSetting('local-login-button-logo') ?? '<i class="fas fa-sign-in-alt"></i>',
+            'localLoginButtonLogo' => $this->framework->getSystemSetting('local-login-button-logo') ?? $this->framework->getUrl('assets/images/YNHH.png', true, true),//'<i class="fas fa-sign-in-alt"></i>',
         ];
     }
 
@@ -366,24 +366,37 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         ?>
         <style>
             .btn-cas {
-                color: #fff;
                 background-color: <?=$loginButtonSettings['casLoginButtonBackgroundColor']?>;
-                border: none;
+                background-image: url('<?=$loginButtonSettings['casLoginButtonLogo']?>');
+                width: auto;
             }
-            .btn-cas:hover,.btn-cas:focus, .btn-cas:active, .btn-cas.btn-active {
+            .btn-cas:hover,.btn-cas:focus, .btn-cas:active, .btn-cas.btn-active, .btn-cas:active:focus, .btn-cas:active:hover{
                 color: #fff !important;
                 background-color: <?=$loginButtonSettings['casLoginButtonBackgroundColorHover']?> !important;
-                border: none;
+                border: 1px solid transparent;
             }
-            .btn-rcgreen {
-                color: #fff;
+            .btn-login-original {
                 background-color: <?=$loginButtonSettings['localLoginButtonBackgroundColor']?>;
-                border: none;
+                background-image: url('<?=$loginButtonSettings['localLoginButtonLogo']?>');
+                width: auto;
             }
-            .btn-rcgreen:hover,.btn-rcgreen:focus, .btn-rcgreen:active, .btn-rcgreen.btn-active {
+            .btn-login-original:hover,.btn-login-original:focus, .btn-login-original:active, .btn-login-original.btn-active, .btn-login-original:active:focus, .btn-login-original:active:hover {
                 color: #fff !important;
                 background-color: <?=$loginButtonSettings['localLoginButtonBackgroundColorHover']?> !important;
-                border: none;
+                border: 1px solid transparent !important;
+            }
+            .btn-login:hover, .btn-login:hover:active, .btn-login.btn-active:hover, .btn-login:focus {
+                outline: 1px solid #4ca2ff !important;
+            }
+            .btn-login {                
+                background-size:contain;
+                background-repeat: no-repeat;
+                background-position: center;
+                max-width: 350px;
+                min-width: 250px;
+                height: 50px;
+                color: #fff;
+                border: 1px solid transparent;
             }
         </style>
         <script>
@@ -393,7 +406,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
                 $('#rc-login-form').hide();
 
-                const loginButton = `<button class="btn btn-sm btn-cas fs15 my-2" onclick="showProgress(1);window.location.href='<?= $this->addQueryParameter($redirect, 'CAS_auth', '1')?>';"><i class="fas fa-sign-in-alt"></i> <span><?=$loginButtonSettings['casLoginButtonText']?></span></button>`;
+                //const loginButton = `<button class="btn btn-sm btn-cas fs15 my-2" onclick="showProgress(1);window.location.href='<?= $this->addQueryParameter($redirect, 'CAS_auth', '1')?>';"><i class="fas fa-sign-in-alt"></i> <span><?=$loginButtonSettings['casLoginButtonText']?></span></button>`;
+                const loginButton = `<button class="btn btn-sm btn-cas btn-login fs15 my-2" onclick="showProgress(1);window.location.href='<?= $this->addQueryParameter($redirect, 'CAS_auth', '1')?>';"></button>`;
                 const orText = '<span class="text-secondary mx-3 my-2 nowrap">-- <?=\RCView::tt('global_46')?> --</span>';
                 const loginChoiceSpan = $('span[data-rc-lang="global_257"]');
                 if (loginChoiceSpan.length > 0) {
@@ -412,7 +426,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                     </div>`;
                     $('#rc-login-form').before(loginDiv);
                 }
-                $('.btn-rcgreen span').text('<?=$loginButtonSettings['localLoginButtonText']?>');
+                // $('.btn-rcgreen span').text('<?=$loginButtonSettings['localLoginButtonText']?>');
+                $('.btn-rcgreen').html(null).addClass('btn-login btn-login-original');
+                $('.btn-login-original')[0].onclick = function() {$('#rc-login-form').toggle();$(this).blur();};
             });
         </script>
         <?php

@@ -111,7 +111,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             // strip the "CAS_auth" parameter from the URL
             $redirectStripped = $this->stripQueryParameter($redirect, 'CAS_auth');
             // Redirect to the page we were on
-            $this->framework->redirectAfterHook($redirectStripped);
+            $this->redirectAfterHook($redirectStripped);
             return;
         } catch ( \CAS_GracefullTerminationException $e ) {
             if ( $e->getCode() !== 0 ) {
@@ -1050,4 +1050,27 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         unset($_SESSION[\phpCAS::getCasClient()::PHPCAS_SESSION_PREFIX]);
         return;
     }
+
+    
+    /**
+     * Just until my minimum RC version is >= 13.10.1
+     * @param mixed $url
+     * @param mixed $forceJS
+     * @return void
+     */
+    public function redirectAfterHook($url, $forceJS = false){
+		// If contents already output, use javascript to redirect instead
+		if (headers_sent() || $forceJS)
+		{
+			$url = \ExternalModules\ExternalModules::escape($url);
+			echo "<script type=\"text/javascript\">window.location.href=\"$url\";</script>";
+		}
+		// Redirect using PHP
+		else
+		{
+			header("Location: $url");
+		}
+
+		\ExternalModules\ExternalModules::exitAfterHook();
+	}
 }

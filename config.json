@@ -129,7 +129,11 @@
         }
     ],
     "auth-ajax-actions": [
-        "eraseCasSession"
+        "eraseCasSession",
+        "isCasUser",
+        "getUserType",
+        "convertTableUserToCasUser",
+        "convertCasUsertoTableUser"
     ],
     "enable-every-page-hooks-on-system-pages": true,
     "framework-version": 14,

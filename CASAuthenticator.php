@@ -12,8 +12,26 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     public function redcap_module_ajax($action, $payload, $project_id, $record, $instrument, $event_id, $repeat_instance, $survey_hash, $response_id, $survey_queue_hash, $page, $page_full, $user_id, $group_id)
     {
+        // Normal Users
         if ($action === 'eraseCasSession') {
             return $this->eraseCasSession();
+        }
+
+        // Admins only
+        if (!$this->framework->getUser()->isSuperUser()) {
+            throw new \Exception('Unauthorized');
+        }
+        if ($action === 'isCasUser') {
+            return $this->isCasUser($payload['username']);
+        }
+        if ($action === 'getUserType') {
+            return $this->getUserType($payload['username']);
+        }
+        if ($action === 'convertTableUserToCasUser') {
+            return $this->convertTableUserToCasUser($payload['username']);
+        }
+        if ($action == 'convertCasUsertoTableUser') {
+            return $this->convertCasUsertoTableUser($payload['username']);
         }
     }
 
@@ -140,6 +158,11 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
         // If we're on the login page, inject the CAS login button
         $this->injectLoginPage($this->curPageURL());
+
+        // If we are on the Browse Users page, add CAS-User information if applicable 
+        if ($page === 'ControlCenter/view_users.php') {
+            $this->addCasInfoToBrowseUsersTable();
+        }
 
         // If we're on the EM Manager page, add a little CSS to make the
         // setting descriptives wider in the project settings
@@ -480,10 +503,34 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         if (empty($userid)) {
             return;
         }
-        $SQL = 'DELETE FROM redcap_auth WHERE username = ?';
-        $query = $this->framework->query($SQL, [ $userid ]);
-        $this->setCasUser($userid);
-        return;
+        try {
+            $SQL   = 'DELETE FROM redcap_auth WHERE username = ?';
+            $query = $this->framework->query($SQL, [ $userid ]);
+            $this->setCasUser($userid);
+            return;
+        } catch (\Exception $e) {
+            $this->framework->log('CAS Authenticator: Error converting table user to CAS user', [ 'error' => $e->getMessage() ]);
+            return;
+        }
+    }
+
+    private function convertCasUsertoTableUser(string $userid) {
+        if (empty($userid)) {
+            return;
+        }
+        try {
+            $temp_password = generateRandomHash(12);
+			$password_salt = \Authentication::generatePasswordSalt();
+			$hashed_password = \Authentication::hashPassword($temp_password, $password_salt);
+			// Add to table
+			$SQL = "INSERT INTO redcap_auth (username, password, password_salt, temp_pwd) VALUES (?, ?, ?, ?)";
+            $query = $this->framework->query($SQL, [ $userid, $hashed_password, $password_salt, 1 ]);
+            $this->setCasUser($userid, false);
+            return;
+        } catch (\Exception $e) {
+            $this->framework->log('CAS Authenticator: Error converting CAS user to table user', [ 'error' => $e->getMessage() ]);
+            return;
+        }
     }
 
     private function getChoices(&$row, $data)
@@ -1057,14 +1104,105 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         return !\Authentication::isTableUser($username) && $this->framework->getSystemSetting('cas-user-' . $username) === true;
     }
 
-    public function setCasUser($userid) {
-        $this->framework->setSystemSetting('cas-user-' . $userid, true);
+    public function getUserType($username) {
+        if ($this->isCasUser($username)) {
+            return 'CAS';
+        }
+        if ($this->inUserAllowlist($username)) {
+            return 'allowlist';
+        }
+        if (\Authentication::isTableUser($username)) {
+            return 'table';
+        }
+        return 'unknown';
+    }
+
+    public function setCasUser($userid, bool $value = true) {
+        $this->framework->setSystemSetting('cas-user-' . $userid, $value);
     }
     
     public function eraseCasSession() {
         $this->initializeCas();
         unset($_SESSION[\phpCAS::getCasClient()::PHPCAS_SESSION_PREFIX]);
         return;
+    }
+
+    private function addCasInfoToBrowseUsersTable() {
+        parse_str($_SERVER['QUERY_STRING'], $query);
+        if (isset($query['username'])) {
+            $userid = $query['username'];
+        }
+        $this->framework->initializeJavascriptModuleObject();
+        ?>
+        <script>
+            var cas_authenticator = <?=$this->getJavascriptModuleObjectName()?>;
+            function convertTableUserToCasUser() {
+                    const username = $('#user_search').val();
+                    Swal.fire({
+                        title: "Are you sure you want to convert this table-based user to a CAS user?",
+                        text: "This cannot be undone.",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Convert to CAS User"
+                        }).then((result) => {
+                            if (result.isConfirmed) {   
+                                cas_authenticator.ajax('convertTableUserToCasUser', {username: username}).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        });
+                }
+                function convertCasUsertoTableUser() {
+                    const username = $('#user_search').val();
+                    Swal.fire({
+                        title: "Are you sure you want to convert this CAS user to a table-based user?",
+                        text: "This cannot be undone.",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Convert to Table User"
+                        }).then((result) => {
+                            if (result.isConfirmed) {   
+                                cas_authenticator.ajax('convertCasUsertoTableUser', {username: username}).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        });
+                }
+
+            $(document).ready(function () {
+                const view_user_original = view_user;
+                view_user = function (username) {
+                    view_user_original(username);
+                    cas_authenticator.ajax('getUserType', {username: username}).then((userType) => {
+                        if (userType === null) {
+                            return;
+                        }
+                        let casUserText = '';
+                        switch (userType) {
+                            case 'CAS':
+                                casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertCasUsertoTableUser()" value="Convert to Table User">`;
+                                break;
+                            case 'allowlist':
+                                casUserText = `<strong>${userType}</strong>`;
+                                break;
+                            case 'table':
+                                casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertTableUserToCasUser()" value="Convert to CAS User">`;
+                                break;
+                            default:
+                                casUserText = `<strong>${userType}</strong>`;
+                                break;
+                        }
+                        $('#indv_user_info').append('<tr><td class="data2">User type</td><td class="data2">' + casUserText + '</td></tr>');
+                    });
+                }
+                
+                <?php if (isset($userid)) { ?>
+                    view_user('<?=$userid?>');
+                <?php } ?>
+
+            });
+        </script>
+        <?php
     }
 
     

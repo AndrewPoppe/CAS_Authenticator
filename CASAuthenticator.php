@@ -85,7 +85,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 "page"                   => $page
             ]);
 
-
             // Trigger login
             \Authentication::autoLogin($userid);
             
@@ -94,14 +93,22 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             
             // Log the login
             \Logging::logPageView("LOGIN_SUCCESS", $userid);
-            
 
             // Handle account-related things.
-
-            // 1. If user is a table-based user, convert to CAS user
-            if (\Authentication::isTableUser($userid)) {
+            // If the user does not exist, try to fetch user details and create them.
+            if (!$this->userExists($userid)) {
+                $userDetails = $this->fetchUserDetails($userid);
+                if ($userDetails) {
+                    $this->setUserDetails($userid, $userDetails);
+                }
+                $this->setCasUser($userid);
+            }
+            // If user is a table-based user, convert to CAS user
+            elseif (\Authentication::isTableUser($userid)) {
                 $this->convertTableUserToCasUser($userid);
-            } else {
+            }
+            // otherwise just make sure they are logged as a CAS user
+            else {
                 $this->setCasUser($userid);
             }
 
@@ -519,12 +526,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             return;
         }
         try {
-            $temp_password = generateRandomHash(12);
-			$password_salt = \Authentication::generatePasswordSalt();
-			$hashed_password = \Authentication::hashPassword($temp_password, $password_salt);
-			// Add to table
-			$SQL = "INSERT INTO redcap_auth (username, password, password_salt, temp_pwd) VALUES (?, ?, ?, ?)";
-            $query = $this->framework->query($SQL, [ $userid, $hashed_password, $password_salt, 1 ]);
+            $SQL   = "INSERT INTO redcap_auth (username) VALUES (?)";
+            $query = $this->framework->query($SQL, [ $userid ]);
+            \Authentication::resetPasswordSendEmail($userid);
             $this->setCasUser($userid, false);
             return;
         } catch (\Exception $e) {
@@ -1086,7 +1090,76 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         } finally {
             return $result;
         }
+    }
+        
+    private function fetchUserDetails(string $userid) {
+        $url = $this->getSystemSetting('cas-user-details-url');
+        $token = $this->getSystemSetting('cas-user-details-token');
+        if (empty($url) || empty($token)) {
+            return null;
+        }
+        $url = str_replace('{userid}', $userid, $url);
+        $response = $this->jwt_request($url, $token);
+        return $this->parseUserDetailsResponse($response);
+    }
 
+    private function parseUserDetailsResponse($response) {
+        if (empty($response)) {
+            return null;
+        }
+        $userDetails = [];
+        try {
+            $userDetails['user_firstname'] = $response['Person']['Names']['ReportingNm']['First'];
+            $userDetails['user_lastname'] = $response['Person']['Names']['ReportingNm']['Last'];
+            $userDetails['user_email'] = $response['Person']['Contacts']['Email'];
+        } catch (\Throwable $e) {
+            $this->framework->log('CAS Authenticator: Error parsing user details response', [ 'error' => $e->getMessage() ]);
+        } finally {
+            return $userDetails;
+        }
+    }
+
+    private function setUserDetails($userid, $details) {
+        if ($this->userExists($userid)) {
+            $this->updateUserDetails($userid, $details);
+        } else {
+            $this->insertUserDetails($userid, $details);
+        }
+        $SQL = 'INSERT INTO redcap_user_information (username, user_firstname, user_lastname, email) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = ?, email = ?';
+    }
+
+    private function userExists($userid) {
+        $SQL = 'SELECT 1 FROM redcap_user_information WHERE username = ?';
+        $q = $this->framework->query($SQL, [ $userid ]);
+        return $q->fetch_assoc() !== null;
+    }
+
+    private function updateUserDetails($userid, $details)
+    {
+        try {
+            $SQL = 'UPDATE redcap_user_information SET user_firstname = ?, user_lastname = ?, user_email = ? WHERE username = ?';
+            $PARAMS = [ $details['user_firstname'], $details['user_lastname'], $details['user_email'], $userid ];
+            $query = $this->createQuery();
+            $query->add($SQL, $PARAMS);
+            $query->execute();
+            return $query->affected_rows;
+        } catch (\Exception $e) {
+            $this->framework->log('CAS Authenticator: Error updating user details', [ 'error' => $e->getMessage() ]);
+        }
+    }
+
+    private function insertUserDetails($userid, $details)
+    {
+        try {
+            $SQL = 'INSERT INTO redcap_user_information (username, user_firstname, user_lastname, user_email) VALUES (?, ?, ?, ?)';
+            $PARAMS = [ $userid, $details['user_firstname'], $details['user_lastname'], $details['user_email'] ];
+            $query = $this->createQuery();
+            $query->add($SQL, $PARAMS);
+            $query->execute();
+            return $query->affected_rows;
+        } catch (\Exception $e) {
+            $this->framework->log('CAS Authenticator: Error inserting user details', [ 'error' => $e->getMessage() ]);
+        }
     }
 
     public function createCode() {
@@ -1132,6 +1205,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         if (isset($query['username'])) {
             $userid = $query['username'];
         }
+
         $this->framework->initializeJavascriptModuleObject();
         ?>
         <script>
@@ -1140,7 +1214,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                     const username = $('#user_search').val();
                     Swal.fire({
                         title: "Are you sure you want to convert this table-based user to a CAS user?",
-                        text: "This cannot be undone.",
                         icon: "warning",
                         showCancelButton: true,
                         confirmButtonText: "Convert to CAS User"
@@ -1156,7 +1229,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                     const username = $('#user_search').val();
                     Swal.fire({
                         title: "Are you sure you want to convert this CAS user to a table-based user?",
-                        text: "This cannot be undone.",
                         icon: "warning",
                         showCancelButton: true,
                         confirmButtonText: "Convert to Table User"

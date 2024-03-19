@@ -37,6 +37,21 @@
             "key": "server-force-https",
             "name": "<strong>HTTPS Override</strong>:<br>Check this if you experience the CAS server redirecting to http despite your REDCap server using https protocol",
             "type": "checkbox"
+        },
+        {
+            "key": "cas-user-details-section",
+            "name": "<div class='cas-descriptive p-2' style='background-color:lightcoral; border: 1px solid red; border-radius: 0.375rem; text-align: center;'><strong>CAS User Details</strong><br>These settings are used to map the CAS user details to the REDCap user details. They won't be useful outside of Yale University.</div>",
+            "type": "descriptive"
+        },
+        {
+            "key": "cas-user-details-url",
+            "name": "<strong>CAS User Details URL</strong>:<br>User {userid} as a placeholder for the username of the person to grab details about",
+            "type": "text"
+        },
+        {
+            "key": "cas-user-details-token",
+            "name": "<strong>CAS User Details Token</strong>:<br>Token to use to authenticate with the CAS User Details URL",
+            "type": "password"
         }
     ],
     "project-settings": [

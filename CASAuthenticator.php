@@ -1251,12 +1251,14 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     private function addCasInfoToBrowseUsersTable()
     {
+        $this->framework->initializeJavascriptModuleObject();
+        
         parse_str($_SERVER['QUERY_STRING'], $query);
         if ( isset ($query['username']) ) {
             $userid = $query['username'];
+            $userType = $this->getUserType($userid);
         }
 
-        $this->framework->initializeJavascriptModuleObject();
         ?>
         <script>
             var cas_authenticator = <?= $this->getJavascriptModuleObjectName() ?>;
@@ -1291,37 +1293,54 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 });
             }
 
-            $(document).ready(function () {
-                const view_user_original = view_user;
-                view_user = function (username) {
-                    view_user_original(username);
-                    cas_authenticator.ajax('getUserType', { username: username }).then((userType) => {
-                        if (userType === null) {
-                            return;
-                        }
-                        let casUserText = '';
-                        switch (userType) {
-                            case 'CAS':
-                                casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertCasUsertoTableUser()" value="Convert to Table User">`;
-                                break;
-                            case 'allowlist':
-                                casUserText = `<strong>${userType}</strong>`;
-                                break;
-                            case 'table':
-                                casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertTableUserToCasUser()" value="Convert to CAS User">`;
-                                break;
-                            default:
-                                casUserText = `<strong>${userType}</strong>`;
-                                break;
-                        }
-                        $('#indv_user_info').append('<tr><td class="data2">User type</td><td class="data2">' + casUserText + '</td></tr>');
-                    });
+            function addTableRow(userType) {
+                console.log(userType);
+                let casUserText = '';
+                switch (userType) {
+                    case 'CAS':
+                        casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertCasUsertoTableUser()" value="Convert to Table User">`;
+                        break;
+                    case 'allowlist':
+                        casUserText = `<strong>${userType}</strong>`;
+                        break;
+                    case 'table':
+                        casUserText = `<strong>${userType}</strong> <input type="button" style="font-size:11px" onclick="convertTableUserToCasUser()" value="Convert to CAS User">`;
+                        break;
+                    default:
+                        casUserText = `<strong>${userType}</strong>`;
+                        break;
                 }
+                console.log($('#indv_user_info'));
+                $('#indv_user_info').append('<tr id="userTypeRow"><td class="data2">User type</td><td class="data2">' + casUserText + '</td></tr>');
+            }
 
+            view_user = function (username) {
+                if (username.length < 1) return;
+                $('#view_user_progress').css({'visibility':'visible'});
+                $('#user_search_btn').prop('disabled',true);
+                $('#user_search').prop('disabled',true);
+                $.get(app_path_webroot+'ControlCenter/user_controls_ajax.php', { user_view: 'view_user', view: 'user_controls', username: username },
+                    function(data) {
+                        cas_authenticator.ajax('getUserType', { username: username }).then((userType) => {
+                            $('#view_user_div').html(data);
+                            addTableRow(userType);
+                            enableUserSearch();
+                            highlightTable('indv_user_info',1000);
+                        });
+                    }
+                );
+            }
+
+            <?php if ( isset ($userid) ) { ?>
+                window.requestAnimationFrame(()=>{addTableRow('<?= $userType ?>')});
+            <?php } ?>
+
+            $(document).ready(function () {
                 <?php if ( isset ($userid) ) { ?>
-                    view_user('<?= $userid ?>');
+                    if (!$('#userTypeRow').length) {
+                        view_user('<?= $userid ?>');
+                    }
                 <?php } ?>
-
             });
         </script>
         <?php

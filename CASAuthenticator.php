@@ -164,7 +164,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
         }
 
         // If we're on the login page, inject the CAS login button
-        $this->injectLoginPage($this->curPageURL());
+        if (\ExternalModules\ExternalModules::getUsername() === null && !\ExternalModules\ExternalModules::isNoAuth() ) {
+            $this->injectLoginPage($this->curPageURL());
+        }
 
         // If we are on the Browse Users page, add CAS-User information if applicable 
         if ( $page === 'ControlCenter/view_users.php' ) {

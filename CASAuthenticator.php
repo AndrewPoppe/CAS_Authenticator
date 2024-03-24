@@ -1269,7 +1269,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
         // Perform login
         $this->log('test');
-        $authenticator->login();
+        $authenticator->login($newUrl);
         $this->lost('test2');
         // Check authentication status
         if ($authenticator->isAuthenticated()) {

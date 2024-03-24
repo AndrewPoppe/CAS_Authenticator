@@ -5,8 +5,6 @@ session_start();  // IMPORTANT: This is required in order to be able
 
 require_once 'vendor/autoload.php';
 
-$module->framework->log('in it');
-
 $settings = [
     'strict' => true,
     'debug' => true,
@@ -44,19 +42,13 @@ $settings = [
 ];
 $auth = new \OneLogin\Saml2\Auth($settings);
 
-$module->framework->log('in it2');
-
 if (isset($_SESSION) && isset($_SESSION['AuthNRequestID'])) {
     $requestID = $_SESSION['AuthNRequestID'];
 } else {
     $requestID = null;
 }
 
-$module->framework->log('in it3');
-
 $auth->processResponse($requestID);
-
-$module->framework->log('in it4');
 
 unset($_SESSION['AuthNRequestID']);
 
@@ -64,13 +56,11 @@ $errors = $auth->getErrors();
 
 if (!empty($errors)) {
     echo '<p>', implode(', ', $errors), '</p>';
-    $module->framework->log('in it5');
     exit();
 }
 
 if (!$auth->isAuthenticated()) {
     echo "<p>Not authenticated</p>";
-    $module->framework->log('in it6');
     exit();
 }
 
@@ -84,10 +74,10 @@ $_SESSION['samlSessionIndex'] = $auth->getSessionIndex();
 if (isset($_POST['RelayState']) && \OneLogin\Saml2\Utils::getSelfURL() != $_POST['RelayState']) {
     // To avoid 'Open Redirect' attacks, before execute the
     // redirection confirm the value of $_POST['RelayState'] is a // trusted URL.
-    
-    //$auth->redirectTo($_POST['RelayState']);
-    $module->framework->log('REDIRECTING');
-    //exit();
+
+    \Authentication::autoLogin($_SESSION['samlUserdata']['firstName'][0]);
+    $auth->redirectTo($_POST['RelayState']);
+    exit();
 }
 
 $attributes = $_SESSION['samlUserdata'];
@@ -96,8 +86,8 @@ $nameId = $_SESSION['samlNameId'];
 echo '<h1>Identified user: '. htmlentities($nameId) .'</h1>';
 
 if (!empty($attributes)) {
-    echo '<h2>'._('User attributes:').'</h2>';
-    echo '<table><thead><th>'._('Name').'</th><th>'._('Values').'</th></thead><tbody>';
+    echo '<h2>User attributes:</h2>';
+    echo '<table><thead><th>Name</th><th>Values</th></thead><tbody>';
     foreach ($attributes as $attributeName => $attributeValues) {
         echo '<tr><td>' . htmlentities($attributeName) . '</td><td><ul>';
         foreach ($attributeValues as $attributeValue) {
@@ -107,5 +97,5 @@ if (!empty($attributes)) {
     }
     echo '</tbody></table>';
 } else {
-    echo _('No attributes found.');
+    echo 'No attributes found.';
 }

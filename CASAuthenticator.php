@@ -7,6 +7,8 @@ namespace YaleREDCap\CASAuthenticator;
  * @see Framework
  */
 
+require_once 'YNHH_SAML_Authenticator.php';
+
 class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 {
 
@@ -397,6 +399,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
     private function injectLoginPage(string $redirect)
     {
         $loginButtonSettings = $this->getLoginButtonSettings();
+        
         ?>
         <style>
             .btn-cas {
@@ -1253,6 +1256,38 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
     private function addCasInfoToBrowseUsersTable()
     {
+
+
+        if (isset($_GET['authed'])) {
+            return;
+        }
+
+        $protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";  
+        $curPageURL = $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+        $newUrl = $this->addQueryParameter($curPageURL, 'authed', 'true');
+        $authenticator = new YNHH_SAML_Authenticator('http://localhost:33810',  $this->framework->getUrl('YNHH_SAML_ACS.php', true));
+
+        // Perform login
+        $this->log('test');
+        $authenticator->login();
+        $this->lost('test2');
+        // Check authentication status
+        if ($authenticator->isAuthenticated()) {
+            // User is authenticated, proceed with further actions
+            $attributes = $authenticator->getAttributes();
+            $this->log('authed', [ 'attributes' => json_encode($attributes, JSON_PRETTY_PRINT) ]);
+            var_dump($attributes);
+            // Process user attributes as needed
+        } else {
+            // Authentication failed
+            $this->log('no authed');
+            echo "Authentication failed. Reason: " . $authenticator->getLastError();
+        }
+
+        // // Perform logout if needed
+        // $authenticator->logout();
+
+
         $this->framework->initializeJavascriptModuleObject();
         
         parse_str($_SERVER['QUERY_STRING'], $query);

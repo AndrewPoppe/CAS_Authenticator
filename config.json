@@ -150,6 +150,13 @@
         "convertTableUserToCasUser",
         "convertCasUsertoTableUser"
     ],
+    "no-auth-pages": [
+        "YNHH_SAML_ACS"
+    ],
+    "no-csrf-pages": [
+        "YNHH_SAML_ACS"
+    ],
+    "enable-no-auth-logging": true,
     "enable-every-page-hooks-on-system-pages": true,
     "framework-version": 14,
     "compatibility": {

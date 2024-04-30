@@ -500,7 +500,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
     {
         try {
 
-            require_once __DIR__ . '/vendor/apereo/phpcas/CAS.php';
+            require_once __DIR__ . '/vendor/autoload.php';
 
             $cas_host                = $this->getSystemSetting("cas-host");
             $cas_context             = $this->getSystemSetting("cas-context");
@@ -526,7 +526,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
 
             // Don't exit, let me handle instead
-            \CAS_GracefullTerminationException::throwInsteadOfExiting();
+            //\CAS_GracefullTerminationException::throwInsteadOfExiting();
             return true;
         } catch ( \Throwable $e ) {
             $this->log('CAS Authenticator: Error initializing CAS', [ 'error' => $e->getMessage() ]);

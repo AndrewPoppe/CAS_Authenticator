@@ -85,10 +85,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
             } catch ( \Throwable $e ) {
                 $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-                $this->framework->exitAfterHook();
-                return;
             } finally {
-                if ( $id === false ) {
+                if ( $id === false || empty($id) ) {
                     $this->framework->exitAfterHook();
                     return;
                 }
@@ -217,9 +215,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
             } catch ( \Throwable $e ) {
                 $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-                $this->framework->exitAfterHook();
             } finally {
-                if ( $id === false ) {
+                if ( $id === false || empty($id) ) {
                     $this->framework->exitAfterHook();
                     return;
                 }
@@ -265,9 +262,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 }
             } catch ( \Throwable $e ) {
                 $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-                $this->framework->exitAfterHook();
             } finally {
-                if ( $id === false ) {
+                if ( $id === false || empty($id) ) {
                     $this->framework->exitAfterHook();
                     return;
                 }
@@ -325,9 +321,8 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             }
         } catch ( \Throwable $e ) {
             $this->framework->log('CAS Authenticator: Error', [ 'error' => $e->getMessage() ]);
-            $this->framework->exitAfterHook();
         } finally {
-            if ( $id === false ) {
+            if ( $id === false || empty($id) ) {
                 $this->framework->exitAfterHook();
                 return;
             }
@@ -526,7 +521,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             \phpCAS::setCasServerCACert($cas_server_ca_cert_path);
 
             // Don't exit, let me handle instead
-            //\CAS_GracefullTerminationException::throwInsteadOfExiting();
+            \CAS_GracefullTerminationException::throwInsteadOfExiting();
             return true;
         } catch ( \Throwable $e ) {
             $this->log('CAS Authenticator: Error initializing CAS', [ 'error' => $e->getMessage() ]);

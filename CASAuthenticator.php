@@ -70,13 +70,14 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                 continue;
             }
 
+            $surveyPage = filter_input(INPUT_GET, '__page__', FILTER_SANITIZE_NUMBER_INT);
+
             $this->framework->log('CAS Authenticator: Handling Survey', [
                 "instrument" => $instrument,
                 "event_id"   => $event_id,
+                "survey page" => $surveyPage
             ]);
-
-            $surveyPage = filter_input(INPUT_GET, '__page__', FILTER_SANITIZE_NUMBER_INT);
-
+            
             try {
                 $id = $this->authenticate();
             } catch ( \CAS_GracefullTerminationException $e ) {
@@ -113,9 +114,9 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
 
                 if ( $field !== null ) {
                     ?>
-                    <script type='text/javascript' defer>
-                        setTimeout(function () {
-                            $(document).ready(function () {
+                    <script>
+                        const ready = fn => document.readyState !== 'loading' ? fn() : document.addEventListener('DOMContentLoaded', fn);
+                            ready(function () {
                                 field = $(`input[name="<?= $field ?>"]`);
                                 id = "<?= $id ?>";
                                 if (field.length) {
@@ -123,7 +124,6 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
                                     field.closest('tr').addClass('@READONLY');
                                 }
                             });
-                        }, 0);
                     </script>
                     <?php
                 }
@@ -503,7 +503,7 @@ class CASAuthenticator extends \ExternalModules\AbstractExternalModule
             $cas_server_ca_cert_id   = $this->getSystemSetting("cas-server-ca-cert-pem");
             $cas_server_ca_cert_path = empty($cas_server_ca_cert_id) ? $this->getSafePath('cacert.pem') : $this->getFile($cas_server_ca_cert_id);
             $server_force_https      = $this->getSystemSetting("server-force-https");
-            $service_base_url        = APP_PATH_WEBROOT_FULL;
+            $service_base_url        = (SSL ? "https" : "http") . "://" . SERVER_NAME;
 
             // Enable https fix
             if ( $server_force_https == 1 ) {
